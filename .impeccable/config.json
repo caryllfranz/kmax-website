@@ -1,0 +1,38 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "createdAt": "2026-11-02T05:49:08.816Z",
+        "reason": "Agent: Arial was intentionally chosen as a locally available, readable supporting face for the Impact display typography in the existing design."
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-11-02T06:46:44.845Z",
+        "reason": "User requested strict fidelity to landing-mockup.html, which specifies Inter"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "app/globals.css"
+        ],
+        "createdAt": "2026-11-02T06:46:44.852Z",
+        "reason": "User requested strict fidelity to landing-mockup.html; hero MAX gradient is in the source"
+      },
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "components/fun-run.module.css"
+        ],
+        "createdAt": "2026-11-02T06:55:28.913Z",
+        "reason": "Agent: the rendered fun run panel shows a clean cyan top accent following its rounded corners; this is intentional visual emphasis."
+      }
+    ]
+  }
+}
