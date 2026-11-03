@@ -3,7 +3,7 @@
 import { CalendarDays, ChevronRight, Plus, Search, UserRound, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useAdminDemo, validMobile } from "@/components/admin/demo-store";
-import { membershipStatus, termFor, timeLeft } from "@/components/admin/members-term";
+import { isActiveStatus, membershipStatus, termFor, timeLeft } from "@/components/admin/members-term";
 import styles from "@/components/admin/members.module.css";
 
 function manilaToday() {
@@ -29,6 +29,16 @@ function statusFor(startsOn: string, endsOn: string, today: string) {
   const status = membershipStatus(startsOn, endsOn, today);
   const categoryStyles = { current: styles.current, expiring: styles.expiring, expired: styles.ended, upcoming: styles.upcoming };
   return { ...status, style: categoryStyles[status.category] };
+}
+
+function StatusBadges({ status }: { status: ReturnType<typeof statusFor> }) {
+  if (status.category === "expiring") {
+    return <span className={styles.statusGroup}>
+      <span className={`${styles.status} ${styles.current}`}>Active</span>
+      <span className={`${styles.status} ${styles.expiring}`}>{status.label}</span>
+    </span>;
+  }
+  return <span className={`${styles.status} ${status.style}`}>{status.label}</span>;
 }
 
 function initials(name: string) {
@@ -63,7 +73,8 @@ export default function MembersPage() {
   }
   const visibleMembers = members.filter((member) => {
     const term = termFor(member, today);
-    const matchesFilter = filter === "all" || statusFor(term.startsOn, term.endsOn, today).category === filter;
+    const category = statusFor(term.startsOn, term.endsOn, today).category;
+    const matchesFilter = filter === "all" || (filter === "current" ? isActiveStatus(category) : category === filter);
     return matchesFilter && (member.name.toLocaleLowerCase().includes(query) || member.mobile.includes(query));
   });
   const selected = members.find((member) => member.id === selectedId);
@@ -179,7 +190,7 @@ export default function MembersPage() {
               </button></div>
           </div>
           <div className={styles.filters} aria-label="Filter memberships">
-            {([ ["all", "All"], ["current", "Current"], ["expiring", "Expiring"], ["expired", "Expired"], ["upcoming", "Upcoming"] ] as const).map(([value, label]) => <button key={value} type="button" className={filter === value ? styles.filterActive : styles.filter} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label} ({counts[value]})</button>)}
+            {([ ["all", "All"], ["current", "Active"], ["expiring", "Expiring"], ["expired", "Expired"], ["upcoming", "Upcoming"] ] as const).map(([value, label]) => <button key={value} type="button" className={filter === value ? styles.filterActive : styles.filter} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label} ({value === "current" ? counts.current + counts.expiring : counts[value]})</button>)}
           </div>
           <p className={styles.tableHint}>Swipe to see all columns</p>
           <div className={styles.tableScroll}>
@@ -195,7 +206,7 @@ export default function MembersPage() {
                       <td data-label="Plan">{term.planName || "Not specified"}</td>
                       <td data-label="Expiry date"><time className={styles.dateCell} dateTime={term.endsOn}>{displayDate(term.endsOn)}</time></td>
                       <td data-label="Time left">{timeLeft(term.endsOn, today)}</td>
-                      <td data-label="Term status"><span className={`${styles.status} ${status.style}`}>{status.label}</span></td>
+                      <td data-label="Term status"><StatusBadges status={status} /></td>
                       <td><button className={styles.detailsButton} type="button" aria-label={`View details and renewal for ${member.name}`} aria-pressed={selectedId === member.id} disabled={renewLocked} onClick={() => { setSelectedId(member.id); setRenewPlan(""); setRenewError(""); }}>Renew <ChevronRight size={16} aria-hidden="true" /></button></td>
                     </tr>
                   );
@@ -204,7 +215,7 @@ export default function MembersPage() {
             </table>
           </div>
           {visibleMembers.length === 0 && <div className={styles.emptyList}>No matching members. Try another name or number.</div>}
-          <p className={styles.tableFooter}>Shows the earliest current expiry, otherwise the nearest upcoming or most recently expired term. Amber is a visual reminder for expiry within 7 days, not a gym policy. Dates use Philippine time.</p>
+          <p className={styles.tableFooter}>Active includes terms expiring soon. Shows the earliest current expiry, otherwise the nearest upcoming or most recently expired term. The 7-day reminder is informational, not a gym policy. Dates use Philippine time.</p>
         </section>
 
         <aside className={`${styles.card} ${styles.detailCard}`} aria-label="Membership details">
@@ -218,7 +229,7 @@ export default function MembersPage() {
                 <span><CalendarDays size={16} aria-hidden="true" /> {selectedStatus.category === "upcoming" ? "Next upcoming term" : selectedStatus.category === "expired" ? "Most recently expired term" : "Current term"}</span>
                 <strong>{displayDate(selectedTerm.startsOn)} – {displayDate(selectedTerm.endsOn)}</strong>
                 <span>{selectedTerm.planName || "Plan not specified"}</span>
-                <span className={`${styles.status} ${selectedStatus.style}`}>{selectedStatus.label}</span>
+                <StatusBadges status={selectedStatus} />
               </div>
               {selectedTerm !== selected && <div className={styles.recordedTerm}><strong>Latest recorded term</strong><span>{selected.planName || "Plan not specified"} · {displayDate(selected.startsOn)} – {displayDate(selected.endsOn)}</span></div>}
               <div className={styles.history}>

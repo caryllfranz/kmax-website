@@ -66,30 +66,30 @@ export default function SchedulePage() {
   }
 
   return <div className={styles.page}>
-    <div className={styles.heading}>
+    <div className={`${styles.heading} ${scheduleStyles.heading}`}>
       <div><span className={styles.kicker}>Staff workspace</span><h1>Group classes &amp; schedule</h1><p>Manage class times and staff attendance lists.</p></div>
       <button type="button" className={styles.primary} disabled={locked} onClick={() => { close(); setShowForm(true); }}><Plus size={17} aria-hidden="true" /> Add session</button>
     </div>
-    <div className={styles.info}><CalendarDays size={19} aria-hidden="true" /><p>{isDemo ? "Schedule preview only. Sample sessions are not published to the public website." : "New sessions are saved as drafts. The public schedule is not connected yet."} Class registration remains in the Messenger group chat.</p></div>
+    <div className={`${styles.info} ${scheduleStyles.info}`}><CalendarDays size={19} aria-hidden="true" /><p>{isDemo ? "Schedule preview only. Sample sessions are not published to the public website." : "New sessions are saved as drafts. The public schedule is not connected yet."} Class registration remains in the Messenger group chat.</p></div>
     {notice && <p className={styles.success} role="status">{notice}</p>}
     {error && !showForm && <p className={styles.error} role="alert">{error}</p>}
     <div className={scheduleStyles.summary} aria-label="Recorded sessions">
       {(["Group class", "Taekwondo", "Coaching"] as const).map((item) => <div key={item}><span>{item === "Group class" ? "Group classes" : item}</span><strong>{sessions.filter((session) => session.category === item).length}</strong><small>Recorded sessions</small></div>)}
     </div>
-    <div className={styles.layout}>
-      <section className={styles.panel} aria-labelledby="sessions-heading">
+    <div className={scheduleStyles.layout}>
+      <section className={`${styles.panel} ${scheduleStyles.schedulePanel}`} aria-labelledby="sessions-heading">
         <div className={styles.panelHeading}><div><h2 id="sessions-heading">Class schedule</h2><p>Dates and times are shown in Philippine time.</p></div><span className={styles.count}>{visible.length} shown</span></div>
-        <div className={styles.filterRow} aria-label="Filter sessions">
+        <div className={`${styles.filterRow} ${scheduleStyles.filterRow}`} aria-label="Filter sessions">
           {['All', 'Group class', 'Taekwondo', 'Coaching'].map((item) => <button type="button" key={item} className={category === item ? styles.filterActive : styles.filter} aria-pressed={category === item} onClick={() => setCategory(item)}>{item}</button>)}
         </div>
         {visible.length ? <div className={scheduleStyles.tableWrap} role="region" aria-label="Class schedule table" tabIndex={0}><table className={scheduleStyles.table}>
           <thead><tr><th scope="col">Class</th><th scope="col">When</th><th scope="col">Coach</th><th scope="col">Attendees</th><th scope="col"><span className={scheduleStyles.srOnly}>Actions</span></th></tr></thead>
           <tbody>{visible.map((session) => <tr key={session.id}>
             <th scope="row"><strong>{session.title}</strong><small>{session.category}</small></th>
-            <td><strong>{formatDate(session.date)}</strong><small>{formatTime(session.time)} – {session.endTime ? `${session.endDate && session.endDate !== session.date ? `${formatDate(session.endDate)} ` : ""}${formatTime(session.endTime)}` : "End time not set"}</small></td>
-            <td>{session.coach || "Not set"}</td>
-            <td>{session.category !== "Group class" ? "—" : countsLoading ? "Loading…" : countsError ? "Unavailable" : counts?.[session.id] === undefined ? "—" : counts[session.id]}</td>
-            <td><div className={scheduleStyles.actions}>{session.category === "Group class" && <button className={scheduleStyles.attendance} type="button" disabled={locked} aria-expanded={attendanceId === session.id} onClick={() => setAttendanceId((current) => current === session.id ? null : session.id)}>Attendees</button>}<button className={scheduleStyles.icon} type="button" disabled={locked} onClick={() => edit(session)} aria-label={`Edit ${session.title}`}><Pencil size={16} aria-hidden="true" /></button><button className={scheduleStyles.icon} type="button" disabled={locked} onClick={() => void remove(session)} aria-label={`${isDemo ? "Remove" : "Cancel"} ${session.title}`}><Trash2 size={16} aria-hidden="true" /></button></div></td>
+            <td data-label="When"><div><strong>{formatDate(session.date)}</strong><small>{formatTime(session.time)} – {session.endTime ? `${session.endDate && session.endDate !== session.date ? `${formatDate(session.endDate)} ` : ""}${formatTime(session.endTime)}` : "End time not set"}</small></div></td>
+            <td data-label="Coach">{session.coach || "Not set"}</td>
+            <td data-label="Attendees">{session.category !== "Group class" ? "—" : countsLoading ? "Loading…" : countsError ? "Unavailable" : counts?.[session.id] === undefined ? "—" : counts[session.id]}</td>
+            <td><div className={scheduleStyles.actions}>{session.category === "Group class" && <button className={scheduleStyles.attendance} type="button" disabled={locked} aria-expanded={attendanceId === session.id} aria-label={`View attendees for ${session.title}`} onClick={() => setAttendanceId((current) => current === session.id ? null : session.id)}>Attendees</button>}<button className={scheduleStyles.icon} type="button" disabled={locked} onClick={() => edit(session)} aria-label={`Edit ${session.title}`}><Pencil size={18} aria-hidden="true" /></button><button className={scheduleStyles.icon} type="button" disabled={locked} onClick={() => void remove(session)} aria-label={`${isDemo ? "Remove" : "Cancel"} ${session.title}`}><Trash2 size={18} aria-hidden="true" /></button></div></td>
           </tr>)}</tbody>
         </table></div> : <p className={styles.empty}>{isDemo ? "No sample sessions in this view. Add one to try the schedule." : "No sessions in this view. Add one to get started."}</p>}
         {countsError && <p className={styles.error} role="alert">Could not load attendee counts. <button type="button" className={styles.textButton} onClick={() => void refreshCounts()}>Try again</button></p>}
@@ -97,7 +97,7 @@ export default function SchedulePage() {
       </section>
       {showForm ? <section className={styles.panel} aria-labelledby="session-form-heading">
         <div className={styles.panelHeading}><div><h2 id="session-form-heading">{editing ? "Edit session" : "Add a session"}</h2><p>{isDemo ? "Use fictional details while this is a demo." : "Times are in the Philippines (Asia/Manila)."}</p></div><button type="button" className={styles.iconButton} disabled={locked} onClick={close} aria-label="Close session form"><X size={18} /></button></div>
-        <form onSubmit={save} className={styles.form}>
+        <form onSubmit={save} className={`${styles.form} ${scheduleStyles.form}`}>
           <label>Session name<input required maxLength={80} readOnly={locked} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. Group workout" /></label>
           <label>Category<select disabled={locked} value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value as Session["category"] })}><option>Group class</option><option>Taekwondo</option><option>Coaching</option></select></label>
           <div className={styles.fields}><label>Start date<input required type="date" readOnly={locked} value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value, endDate: (!editing || form.endTime) && (!form.endDate || form.endDate === form.date) ? event.target.value : form.endDate })} /></label><label>Start time<input required type="time" readOnly={locked} value={form.time} onChange={(event) => setForm({ ...form, time: event.target.value })} /></label></div>

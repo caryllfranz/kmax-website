@@ -2,6 +2,10 @@ import type { Member } from "./demo-store";
 
 export type MembershipCategory = "current" | "expiring" | "expired" | "upcoming";
 
+export function isActiveStatus(category: MembershipCategory) {
+  return category === "current" || category === "expiring";
+}
+
 function daysUntil(endsOn: string, today: string) {
   return Math.round((Date.parse(`${endsOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
 }
@@ -12,7 +16,7 @@ export function membershipStatus(startsOn: string, endsOn: string, today: string
   const days = daysUntil(endsOn, today);
   if (days === 0) return { label: "Expires today", category: "expiring" };
   if (days <= 7) return { label: `Expires in ${days} ${days === 1 ? "day" : "days"}`, category: "expiring" };
-  return { label: "Current", category: "current" };
+  return { label: "Active", category: "current" };
 }
 
 export function timeLeft(endsOn: string, today: string) {

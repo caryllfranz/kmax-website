@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { membershipStatus, termFor, timeLeft } from "../components/admin/members-term.ts";
+import { isActiveStatus, membershipStatus, termFor, timeLeft } from "../components/admin/members-term.ts";
 
 function member(latest, history = []) {
   return { id: "test", name: "Sample", mobile: "00000000000", ...latest, history };
@@ -39,10 +39,17 @@ test("without a current term select the nearest future start before the latest e
 
 test("expiry reminder uses inclusive dates and the seven-day visual threshold", () => {
   assert.deepEqual(membershipStatus("2027-02-01", "2027-02-08", "2027-02-01"), { category: "expiring", label: "Expires in 7 days" });
-  assert.deepEqual(membershipStatus("2027-02-01", "2027-02-09", "2027-02-01"), { category: "current", label: "Current" });
+  assert.deepEqual(membershipStatus("2027-02-01", "2027-02-09", "2027-02-01"), { category: "current", label: "Active" });
   assert.equal(membershipStatus("2027-02-01", "2027-02-02", "2027-02-01").label, "Expires in 1 day");
   assert.equal(timeLeft("2027-02-01", "2027-02-01"), "Today");
   assert.equal(timeLeft("2027-01-31", "2027-02-01"), "1 day ago");
   assert.equal(timeLeft("2027-01-30", "2027-02-01"), "2 days ago");
   assert.equal(timeLeft("2028-03-01", "2028-02-28"), "2 days");
+});
+
+test("active includes expiring terms, but excludes expired and upcoming terms", () => {
+  assert.equal(isActiveStatus("current"), true);
+  assert.equal(isActiveStatus("expiring"), true);
+  assert.equal(isActiveStatus("expired"), false);
+  assert.equal(isActiveStatus("upcoming"), false);
 });

@@ -1,10 +1,12 @@
 "use client";
 
-import { Minus, Plus, Search, ShoppingBag, ShoppingCart, X } from "lucide-react";
+import { ArrowRight, BarChart3, Minus, Package, Plus, ReceiptText, Search, ShoppingBag, ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { manilaToday, useAdminDemo } from "@/components/admin/demo-store";
+import { summarizeCounterSales } from "@/components/admin/pos-analytics";
 import styles from "@/components/admin/retail.module.css";
+import visual from "@/components/admin/pos-visual.module.css";
 
 function peso(centavos: number) {
   return `₱${Math.floor(centavos / 100).toLocaleString("en-PH")}.${String(centavos % 100).padStart(2, "0")}`;
@@ -12,15 +14,16 @@ function peso(centavos: number) {
 function pesoTotal(centavos: bigint) {
   return `₱${(centavos / BigInt(100)).toLocaleString("en-PH")}.${String(centavos % BigInt(100)).padStart(2, "0")}`;
 }
+const saleTime = new Intl.DateTimeFormat("en-PH", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });
+const shortDate = new Intl.DateTimeFormat("en-PH", { month: "2-digit", day: "2-digit", timeZone: "UTC" });
 
 export default function PosPage() {
   const { products, sales, mode, rootPath, checkout } = useAdminDemo();
   const isDemo = mode === "demo";
   const today = manilaToday();
-  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" });
-  const todaySales = sales.filter((sale) => day.format(new Date(sale.createdAt)) === today);
-  const todayTotal = todaySales.reduce((sum, sale) => sum + BigInt(sale.totalCentavos), BigInt(0));
+  const { todaySales, todayTotal, salesDays, topItems, mostSold, maxDailySale, hasRecentSales } = summarizeCounterSales(sales, today);
   const totalStock = products.reduce((sum, product) => sum + BigInt(product.stock), BigInt(0));
+  const stockPreview = [...products].sort((a, b) => a.stock - b.stock || a.name.localeCompare(b.name)).slice(0, 5);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [message, setMessage] = useState("");
@@ -80,7 +83,8 @@ export default function PosPage() {
   return (
     <div className={styles.page}>
       <div className={styles.heading}>
-        <div><span className={styles.kicker}>Counter operations</span><h1>Point of sale</h1><p>{isDemo ? "Select sample items to try a counter sale." : "Select products for a counter sale."}</p></div>
+        <div><span className={styles.kicker}>Counter operations</span><h1>Products &amp; sales</h1><p>{isDemo ? "Explore sample counter sales and stock." : "Record a sale and see your counter activity."}</p></div>
+        <nav className={visual.pageLinks} aria-label="Counter shortcuts"><Link href={`${rootPath}/inventory`}>Manage inventory <ArrowRight size={15} aria-hidden="true" /></Link><Link href={`${rootPath}/reports`}>Sales reports <ArrowRight size={15} aria-hidden="true" /></Link></nav>
       </div>
       {isDemo && <div className={styles.demoInfo}>Demo only: prices and products are fictional. No payment is processed, and sales disappear when the demo is refreshed.</div>}
       {message && <div className={styles.notice} role="status">{message}<button type="button" aria-label="Dismiss message" onClick={() => setMessage("")}><X size={16} /></button></div>}
@@ -101,8 +105,9 @@ export default function PosPage() {
               const quantity = cart[product.id] ?? 0;
               const unavailable = saving || retryLines !== null || product.stock === 0 || quantity >= product.stock;
               return (
-                <button className={styles.productCard} key={product.id} type="button" onClick={() => changeQuantity(product.id, 1)} disabled={unavailable} aria-label={unavailable ? `${product.name}, unavailable` : `Add ${product.name} to sale`}>
+                <button className={`${styles.productCard} ${visual.productCard}`} key={product.id} type="button" onClick={() => changeQuantity(product.id, 1)} disabled={unavailable} aria-label={unavailable ? `${product.name}, unavailable` : `Add ${product.name} to sale`}>
                   <span className={styles.productIcon}><ShoppingBag size={20} aria-hidden="true" /></span>
+                  {quantity > 0 && <span className={visual.inOrder} aria-hidden="true">{quantity} in order</span>}
                   <span className={styles.productName}>{product.name}</span>
                   <strong>{peso(product.priceCentavos)}</strong>
                   <span className={`${styles.stockText} ${product.stock === 0 ? styles.stockEmpty : styles.stockCount}`}>{product.stock === 0 ? "Out of stock" : `${product.stock} in stock`}</span>
@@ -141,6 +146,27 @@ export default function PosPage() {
           <p className={styles.smallNote}>{isDemo ? "No payment or receipt is created." : "Payment is recorded only; no payment is processed here."}</p>
         </section>
       </div>
+      <div className={visual.supportGrid}>
+        <section className={`${styles.panel} ${visual.supportPanel}`} aria-labelledby="pos-stock-heading">
+          <div className={styles.panelHeading}><div><h2 id="pos-stock-heading">Inventory</h2><p>Products with the fewest units on hand.</p></div><Link className={visual.panelLink} href={`${rootPath}/inventory`}>Manage stock <ArrowRight size={15} aria-hidden="true" /></Link></div>
+          {stockPreview.length ? <div className={visual.stockTableWrap}><table className={visual.stockTable}><thead><tr><th scope="col">Product</th><th scope="col">Price</th><th scope="col">In stock</th><th scope="col">Status</th></tr></thead><tbody>{stockPreview.map((product) => <tr key={product.id}><th scope="row"><span className={visual.itemIcon}><Package size={16} aria-hidden="true" /></span>{product.name}</th><td>{peso(product.priceCentavos)}</td><td>{product.stock}</td><td><span className={`${styles.stockText} ${product.stock ? styles.stockCount : styles.stockEmpty}`}>{product.stock ? "In stock" : "Out of stock"}</span></td></tr>)}</tbody></table></div> : <div className={visual.empty}><Package size={20} aria-hidden="true" /><p>No products yet. Add products in Inventory to start a sale.</p><Link href={`${rootPath}/inventory`}>Go to inventory <ArrowRight size={15} aria-hidden="true" /></Link></div>}
+        </section>
+        <section className={`${styles.panel} ${visual.supportPanel}`} aria-labelledby="pos-sales-heading">
+          <div className={styles.panelHeading}><div><h2 id="pos-sales-heading">Today’s sales</h2><p>Newest counter transactions, Philippine time.</p></div><Link className={visual.panelLink} href={`${rootPath}/reports`}>View all <ArrowRight size={15} aria-hidden="true" /></Link></div>
+          {todaySales.length ? <ol className={visual.salesList}>{todaySales.slice(0, 5).map((sale) => <li key={sale.id}><span className={visual.itemIcon}><ReceiptText size={16} aria-hidden="true" /></span><div className={visual.saleInfo}><strong>{sale.lines.map((line) => `${line.quantity} × ${line.name}`).join(", ")}</strong><time dateTime={sale.createdAt}>{saleTime.format(new Date(sale.createdAt))}</time></div><b>{peso(sale.totalCentavos)}</b></li>)}</ol> : <div className={visual.empty}><ReceiptText size={20} aria-hidden="true" /><p>Sales recorded today will appear here.</p></div>}
+        </section>
+      </div>
+      <div className={visual.chartGrid}>
+        <section className={`${styles.panel} ${visual.chartPanel}`} aria-labelledby="pos-top-heading">
+          <div className={styles.panelHeading}><div><h2 id="pos-top-heading">Top products</h2><p>Units sold in the last 30 days.</p></div><BarChart3 size={19} aria-hidden="true" /></div>
+          {topItems.length ? <ul className={visual.topList}>{topItems.map(([id, item]) => <li key={id}><span>{item.name}</span><div className={visual.topTrack} aria-hidden="true"><div style={{ width: `${Number(item.quantity * BigInt(100) / mostSold)}%` }} /></div><strong>{item.quantity.toLocaleString("en-PH")}</strong></li>)}</ul> : <div className={visual.empty}><BarChart3 size={20} aria-hidden="true" /><p>Product rankings will appear after a sale.</p></div>}
+        </section>
+        <section className={`${styles.panel} ${visual.chartPanel}`} aria-labelledby="pos-daily-heading">
+          <div className={styles.panelHeading}><div><h2 id="pos-daily-heading">Daily product sales</h2><p>Counter sales for the last 7 days.</p></div><Link className={visual.panelLink} href={`${rootPath}/reports`}>View report <ArrowRight size={15} aria-hidden="true" /></Link></div>
+          {hasRecentSales ? <><div className={visual.barChart} role="img" tabIndex={0} aria-label={`Daily counter sales: ${salesDays.map((entry) => `${entry.date} ${pesoTotal(entry.total)}`).join(", ")}`}><div className={visual.scale}><span>{pesoTotal(maxDailySale)}</span><span>₱0</span></div><div className={visual.columns}>{salesDays.map((entry) => <div key={entry.date} className={visual.column}><div className={visual.columnTrack}><span style={{ height: `${maxDailySale ? Number(entry.total * BigInt(10000) / maxDailySale) / 100 : 0}%` }} title={`${entry.date}: ${pesoTotal(entry.total)}`} /></div><time dateTime={entry.date}>{shortDate.format(new Date(`${entry.date}T00:00:00Z`))}</time></div>)}</div></div><p className={visual.chartHint}>Swipe to see all dates.</p></> : <div className={visual.empty}><BarChart3 size={20} aria-hidden="true" /><p>Daily sales will appear after a counter sale is recorded.</p></div>}
+        </section>
+      </div>
+      <p className={visual.note}>Counter sales only. Walk-in and membership payments are recorded separately.</p>
     </div>
   );
 }

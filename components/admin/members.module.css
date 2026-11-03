@@ -84,6 +84,7 @@
 .memberMobile { display: block; margin-top: 4px; color: #526b7d; font-size: .8125rem; font-weight: 500; }
 .dateCell { color: #173e5b; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .status { display: inline-flex; align-items: center; width: fit-content; padding: 6px 10px; border-radius: 999px; font-size: .8125rem; font-weight: 700; white-space: nowrap; }
+.statusGroup { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .current { color: #176746; background: #e6f5ec; }
 .upcoming { color: #245f8b; background: #e7f2fa; }
 .expiring { color: #754700; background: #fff1ce; }
@@ -102,6 +103,7 @@
 .currentTerm { display: grid; gap: 8px; margin-top: 22px; padding: 15px; border-radius: 8px; background: #f2f8fc; }
 .currentTerm span { display: flex; align-items: center; gap: 7px; color: #567184; font-size: .75rem; font-weight: 700; }
 .currentTerm .status { display: inline-flex; font-size: .8125rem; }
+.currentTerm .statusGroup { display: inline-flex; gap: 6px; }
 .currentTerm .current { color: #176746; }
 .currentTerm .upcoming { color: #245f8b; }
 .currentTerm .expiring { color: #754700; }

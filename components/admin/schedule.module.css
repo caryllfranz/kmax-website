@@ -1,30 +1,55 @@
-.summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
-.summary > div { padding: 17px 20px; border: 1px solid #dce8f1; border-radius: 12px; background: #fff; }
+.heading p { font-size: 1rem; line-height: 1.5; }
+.heading > button { min-height: 46px; font-size: .95rem; }
+.info { font-size: .95rem; }
+.summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+.summary > div { padding: 19px 22px; border: 1px solid #dce8f1; border-radius: 12px; background: #fff; }
 .summary span, .summary strong, .summary small { display: block; }
-.summary span { color: #526d85; font-size: .8rem; font-weight: 700; }
-.summary strong { margin-top: 8px; color: #021b3a; font: 800 2rem/1 var(--font-display), sans-serif; font-variant-numeric: tabular-nums; }
-.summary small { margin-top: 6px; color: #526d85; font-size: .75rem; }
+.summary span { color: #415d74; font-size: .95rem; font-weight: 700; }
+.summary strong { margin-top: 8px; color: #021b3a; font: 800 2.25rem/1 var(--font-display), sans-serif; font-variant-numeric: tabular-nums; }
+.summary small { margin-top: 6px; color: #526d85; font-size: .85rem; }
+.layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(290px, .65fr); gap: 18px; align-items: start; }
+.schedulePanel { min-width: 0; }
+.schedulePanel h2 { font-size: 1.65rem; }
+.schedulePanel > div:first-child p { font-size: .9rem; }
+.filterRow button { min-height: 42px; padding: 9px 15px; font-size: .9rem; }
 .tableWrap { max-width: 100%; overflow-x: auto; }
 .tableWrap:focus-visible { outline: 2px solid #07548d; outline-offset: 3px; }
-.table { width: 100%; min-width: 610px; border-collapse: collapse; text-align: left; }
-.table th, .table td { padding: 13px 10px; border-top: 1px solid #e9f0f5; color: #25445e; font-size: .86rem; vertical-align: middle; }
-.table thead th { border-top: 0; color: #526d85; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-.table tbody th { color: #102a43; font-size: .95rem; }
+.table { width: 100%; min-width: 710px; border-collapse: collapse; text-align: left; }
+.table th, .table td { padding: 16px 12px; border-top: 1px solid #e9f0f5; color: #25445e; font-size: .95rem; vertical-align: middle; }
+.table thead th { border-top: 0; color: #526d85; font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.table tbody th { color: #102a43; font-size: 1.05rem; overflow-wrap: anywhere; }
 .table strong, .table small { display: block; }
-.table small { margin-top: 4px; color: #526d85; font-size: .76rem; font-weight: 400; white-space: nowrap; }
+.table small { margin-top: 5px; color: #526d85; font-size: .875rem; font-weight: 400; line-height: 1.4; }
+.table td[data-label="Attendees"] { font-weight: 700; font-variant-numeric: tabular-nums; }
 .actions { display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
-.actions button { min-height: 40px; border: 0; border-radius: 7px; font: 700 .8rem/1.2 var(--font-body), sans-serif; cursor: pointer; }
+.actions button { min-height: 44px; border: 0; border-radius: 8px; font: 700 .9rem/1.2 var(--font-body), sans-serif; cursor: pointer; }
 .actions button:focus-visible { outline: 2px solid #07548d; outline-offset: 2px; }
 .actions button:disabled { opacity: .55; cursor: not-allowed; }
-.attendance { padding: 8px 12px; background: #e9f4fa; color: #07548d; }
+.attendance { padding: 10px 15px; background: #e9f4fa; color: #07548d; }
 .attendance:hover { background: #d8edf7; }
-.icon { display: grid; width: 40px; place-items: center; background: transparent; color: #416680; }
+.icon { display: grid; width: 44px; place-items: center; background: transparent; color: #416680; }
 .icon:hover { background: #edf5fa; }
+.form label { font-size: .9rem; }
+.form input, .form select { min-height: 46px; font-size: 1rem; }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 1450px) {
+  .layout { grid-template-columns: 1fr; }
+}
 @media (max-width: 560px) {
   .summary { gap: 8px; }
-  .summary > div { padding: 14px 10px; }
-  .summary span { font-size: .72rem; }
-  .summary strong { font-size: 1.7rem; }
-  .summary small { font-size: .68rem; }
+  .summary > div { padding: 14px 11px; }
+  .summary span { font-size: .85rem; line-height: 1.3; }
+  .summary strong { font-size: 1.9rem; }
+  .summary small { font-size: .75rem; line-height: 1.35; }
+  .table, .table tbody, .table tr { display: block; width: 100%; min-width: 0; }
+  .table thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  .table tbody tr { padding: 16px 0; border-top: 1px solid #e9f0f5; }
+  .table tbody th, .table tbody td { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 7px 0; border: 0; }
+  .table tbody th { padding-bottom: 10px; }
+  .table tbody th strong { min-width: 0; overflow-wrap: anywhere; }
+  .table tbody th small { flex: none; }
+  .table td[data-label]::before { content: attr(data-label); flex: none; color: #526d85; font-size: .875rem; font-weight: 600; }
+  .table td[data-label] { text-align: right; overflow-wrap: anywhere; }
+  .table td:last-child { justify-content: flex-end; }
+  .table td[data-label="When"] strong, .table td[data-label="When"] small { text-align: right; }
 }
