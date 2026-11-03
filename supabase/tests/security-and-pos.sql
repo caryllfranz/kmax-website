@@ -1,0 +1,71 @@
+﻿\set ON_ERROR_STOP on
+insert into auth.users(id) values ('00000000-0000-0000-0000-000000000001'), ('00000000-0000-0000-0000-000000000002'), ('00000000-0000-0000-0000-000000000003'), ('00000000-0000-0000-0000-000000000004');
+insert into public.staff_profiles(user_id, display_name, role, active) values ('00000000-0000-0000-0000-000000000001', 'Test Staff', 'admin', true), ('00000000-0000-0000-0000-000000000002', 'Second Staff', 'staff', true), ('00000000-0000-0000-0000-000000000003', 'Disabled Staff', 'staff', false);
+insert into public.schedule_entries(title, category, starts_at, ends_at, status, created_by, updated_by) values ('Public test', 'group_class', '2027-01-01 10:00+08', null, 'published', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001'), ('Draft test', 'coaching', '2027-01-02 10:00+08', null, 'draft', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001');
+set role anon;
+do $$ begin
+  if (select count(id) from public.schedule_entries) <> 1 then raise exception 'Anon schedule isolation failed'; end if;
+  begin perform count(*) from public.members; raise exception 'Anonymous member access allowed'; exception when insufficient_privilege then null; end;
+  begin perform created_by from public.schedule_entries; raise exception 'Anonymous staff ID access allowed'; exception when insufficient_privilege then null; end;
+  begin perform public.complete_sale('20000000-0000-0000-0000-000000000001', 'Cash', '[]'::jsonb); raise exception 'Anonymous checkout allowed'; exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false);
+set role authenticated;
+do $$
+declare v_member uuid; v_retry uuid; v_term uuid; v_product uuid; v_entry uuid; v_movement uuid; v_sale uuid; v_count bigint;
+begin
+  if not kmax_private.is_active_staff() then raise exception 'Active staff not recognized'; end if;
+  begin insert into public.members(full_name, mobile) values ('Bypass', '000'); raise exception 'Direct member insert allowed'; exception when insufficient_privilege then null; end;
+  v_member := public.create_member_with_term('10000000-0000-0000-0000-000000000001', 'Sample Member', '00000000000', '2027-01-01', '2027-01-31');
+  v_retry := public.create_member_with_term('10000000-0000-0000-0000-000000000001', 'Sample Member', '00000000000', '2027-01-01', '2027-01-31');
+  if v_member <> v_retry or (select count(*) from public.membership_terms where member_id = v_member) <> 1 then raise exception 'Member creation retry failed'; end if;
+  begin perform public.create_member_with_term('10000000-0000-0000-0000-000000000001', 'Different', '00000000000', '2027-01-01', '2027-01-31'); raise exception 'Changed creation request accepted'; exception when raise_exception then if sqlerrm <> 'Idempotency key already used for another request' then raise; end if; end;
+  begin perform public.create_member_with_term('10000000-0000-0000-0000-000000000002', 'Rollback Member', '000', '2027-01-01', '2027-01-31', null, -1, null); raise exception 'Invalid term accepted'; exception when check_violation then null; end;
+  if exists (select 1 from public.members where full_name = 'Rollback Member') then raise exception 'Failed initial term left a member'; end if;
+  update public.members set full_name = 'Sample Member Updated' where id = v_member;
+  if (select updated_by from public.members where id = v_member) <> auth.uid() then raise exception 'Member actor not stamped'; end if;
+  v_term := public.append_membership_term('10000000-0000-0000-0000-000000000003', v_member, '2027-02-01', '2027-02-28');
+  v_retry := public.append_membership_term('10000000-0000-0000-0000-000000000003', v_member, '2027-02-01', '2027-02-28');
+  if v_term <> v_retry or (select count(*) from public.membership_terms where member_id = v_member) <> 2 then raise exception 'Renewal retry failed'; end if;
+  begin update public.membership_terms set plan_name = 'changed' where member_id = v_member; raise exception 'History update allowed'; exception when insufficient_privilege then null; end;
+  begin insert into public.products(name, price_centavos) values ('Bypass', 1); raise exception 'Direct product insert allowed'; exception when insufficient_privilege then null; end;
+  v_product := public.create_product_with_stock('10000000-0000-0000-0000-000000000004', 'Test Item', 12500, 5);
+  v_retry := public.create_product_with_stock('10000000-0000-0000-0000-000000000004', 'Test Item', 12500, 5);
+  if v_product <> v_retry or (select stock_on_hand from public.products where id = v_product) <> 5 or (select count(*) from public.stock_movements where product_id = v_product) <> 1 then raise exception 'Product opening stock retry failed'; end if;
+  begin update public.products set stock_on_hand = 100 where id = v_product; raise exception 'Direct stock edit allowed'; exception when insufficient_privilege then null; end;
+  v_movement := public.record_stock_adjustment(v_product, 1, 'Restock', '10000000-0000-0000-0000-000000000005');
+  v_retry := public.record_stock_adjustment(v_product, 1, 'Restock', '10000000-0000-0000-0000-000000000005');
+  if v_movement <> v_retry or (select stock_on_hand from public.products where id = v_product) <> 6 then raise exception 'Stock adjustment retry failed'; end if;
+  v_sale := public.complete_sale('10000000-0000-0000-0000-000000000006', 'Cash', jsonb_build_array(jsonb_build_object('product_id',v_product,'quantity',2,'expected_unit_price_centavos',12500)));
+  v_retry := public.complete_sale('10000000-0000-0000-0000-000000000006', 'Cash', jsonb_build_array(jsonb_build_object('product_id',v_product,'quantity',2,'expected_unit_price_centavos',12500)));
+  if v_sale <> v_retry or (select stock_on_hand from public.products where id = v_product) <> 4 or (select total_centavos from public.sales where id = v_sale) <> 25000 then raise exception 'Sale retry or total failed'; end if;
+  if (select count(*) from public.sale_items where sale_id = v_sale) <> 1 or (select count(*) from public.stock_movements where sale_id = v_sale) <> 1 then raise exception 'Sale lines or movements duplicated'; end if;
+  begin perform public.complete_sale('10000000-0000-0000-0000-000000000007', 'Cash', jsonb_build_array(jsonb_build_object('product_id',v_product,'quantity',1,'expected_unit_price_centavos',12000))); raise exception 'Stale price accepted'; exception when raise_exception then if sqlerrm <> 'Product price changed; refresh the cart' then raise; end if; end;
+  begin perform public.complete_sale('10000000-0000-0000-0000-000000000008', 'Cash', jsonb_build_array(jsonb_build_object('product_id',v_product,'quantity',5,'expected_unit_price_centavos',12500))); raise exception 'Over-selling accepted'; exception when raise_exception then if sqlerrm <> 'Insufficient stock' then raise; end if; end;
+  if exists (select 1 from public.sales where idempotency_key in ('10000000-0000-0000-0000-000000000007','10000000-0000-0000-0000-000000000008')) or (select stock_on_hand from public.products where id = v_product) <> 4 then raise exception 'Failed sale changed state'; end if;
+  begin perform public.create_product_with_stock('10000000-0000-0000-0000-000000000009', 'Too expensive', 9007199254740992, 1); raise exception 'Unsafe price accepted'; exception when raise_exception then if sqlerrm <> 'Provide a name, valid price and non-negative opening stock' then raise; end if; end;
+  v_entry := public.create_schedule_entry('10000000-0000-0000-0000-000000000010', 'Coaching test', 'coaching', '2027-01-03 10:00+08');
+  v_retry := public.create_schedule_entry('10000000-0000-0000-0000-000000000010', 'Coaching test', 'coaching', '2027-01-03 10:00+08');
+  if v_entry <> v_retry or (select ends_at from public.schedule_entries where id = v_entry) is not null or (select status from public.schedule_entries where id = v_entry) <> 'draft' then raise exception 'Schedule creation retry failed'; end if;
+  update public.schedule_entries set status = 'published' where id = v_entry;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', false);
+set role authenticated;
+do $$ begin
+  begin perform public.create_member_with_term('10000000-0000-0000-0000-000000000001', 'Sample Member', '00000000000', '2027-01-01', '2027-01-31'); raise exception 'Cross-actor retry accepted'; exception when raise_exception then if sqlerrm <> 'Idempotency key already used for another request' then raise; end if; end;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000003', false);
+set role authenticated;
+do $$ begin
+  if (select count(*) from public.members) <> 0 then raise exception 'Disabled staff can read members'; end if;
+  if (select count(*) from public.schedule_entries) <> 0 then raise exception 'Disabled staff can read schedules'; end if;
+  begin perform public.create_schedule_entry('10000000-0000-0000-0000-000000000011', 'No', 'coaching', '2027-01-03 10:00+08'); raise exception 'Disabled staff write allowed'; exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+set role anon;
+do $$ begin if (select count(id) from public.schedule_entries) <> 2 then raise exception 'Published schedule not exposed'; end if; end $$;
+reset role;
+select 'SQL authorization, atomicity, idempotency, stale-price and bounds tests passed' as result;

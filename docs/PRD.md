@@ -51,16 +51,17 @@ The public website must work on phones and desktops, be accessible, and use repl
 |---|---|
 | Staff access | Secure staff/admin authentication; protected pages and operations; permissions matched to assigned responsibilities. |
 | Member registry | Authorized staff register, find, and update members. Full name and mobile number are the previously chosen basic registration fields. Flag possible duplicates. |
+| Walk-ins | Staff record a non-member visit with name, visit date, amount, paid/unpaid status and payment method when paid. No fee is assumed and no payment is processed. |
 | Memberships | Record initial terms, track expiry, renew memberships, and retain prior terms and payment history. Show active, expiring, and expired views using KMAX-approved rules. |
 | Counter POS | Staff-operated checkout for drinks and merchandise, with itemized totals and durable transaction records. |
 | Inventory | Product catalog, stock on hand, receiving, sale deductions, authorized corrections, and stock history. |
 | Sales reports | Date-filtered sales totals, item sales, and operational summaries derived from saved transactions. |
-| Class schedule management | Authorized staff create, edit, publish, and cancel schedule entries; published entries appear on the website. No attendee or registration management. |
+| Class and session schedule | Authorized staff manage times for group classes, taekwondo, and coaching. Staff can maintain a private attendance list by name for group classes, including non-members. Approved published class entries can appear on the website. Coaching is schedule-only, with no member assignment. |
 
 ### Explicitly out of scope
 
 - Member login, passwords, profiles, and portal.
-- Online class registration, reservations, approvals, waitlists, capacity holds, attendance rosters, and any booking API or workflow.
+- Online class registration, reservations, approvals, waitlists, capacity holds, and any booking API or workflow. The staff-only group class attendance list is not an online reservation.
 - Messenger automation, group-chat import, and automatic sync of chat registrations.
 - Online checkout, payment gateway, recurring billing, and consumer e-commerce.
 - Private coaching appointments, training-credit packages, and coach-conflict handling.
@@ -132,7 +133,7 @@ Every item below is an **ASSUMPTION**, not an approved KMAX policy. Implementati
 
 | ID | Assumption to validate with KMAX | Why it matters |
 |---|---|---|
-| A02 — Membership offerings | Plan types, durations, joining rules, prices, discounts, and whether walk-ins or packages exist are unknown. | Public membership copy, member setup, and payment records. |
+| A02 — Membership offerings | Plan types, durations, joining rules, prices, discounts, walk-in rates, and whether packages exist are unknown. | Public membership copy, member setup, and payment records. |
 | A03 — Membership timing | Term start/end inclusivity, renewal start date, overlapping terms, grace periods, pauses, and activation after payment are unknown. | Accurate status and expiry. |
 | A04 — Expiry alerts | The number of days that counts as “expiring soon” and whether reminders are used are unknown. | Dashboard filters and staff workflow. |
 | A05 — Payments | Accepted methods, proof requirements, refund/void permissions, receipt process, and tax obligations are unknown. | POS, renewals, reports, and audit. |
@@ -141,6 +142,7 @@ Every item below is an **ASSUMPTION**, not an approved KMAX policy. Implementati
 | A08 — Public content | Address, opening hours, contact details, approved photos, logo use, program descriptions, and membership copy need confirmation. | Prevents false or unauthorized claims. |
 | A09 — Messenger access | The group-chat link, join procedure, and exact wording for class registration have not been supplied. | Accurate public call to action. |
 | A10 — Legacy data | Whether existing members, products, sales, and stock history will be imported is unknown. | Migration scope, privacy review, and opening balances. |
+| A11 — Member numbers | A separate printed or staff-visible member number has not been confirmed. The system currently generates an internal UUID; staff can search by name or mobile. | Confirm whether existing cards or a counter workflow require a short member number before introducing one. |
 
 No class capacity or reservation limit is specified for this software because it does not accept class registrations. Real-world class limits remain a gym operating policy outside this software scope.
 
@@ -151,7 +153,8 @@ This is information the eventual dashboard may need, not a finalized database sc
 - **Staff users and permissions:** Authenticated staff identity, assigned permissions, and audit events. No member authentication records.
 - **Members:** Internal ID, full name, mobile number, creation/change metadata, and archival state if approved.
 - **Memberships:** Approved plan snapshot, start/end dates, activation evidence, linked member, payment history, and renewal history. Preserve old terms rather than overwrite them.
-- **Class schedule:** Program and public description, Manila-local display details, publication state, and change history. No participant, request, or booking records.
+- **Walk-in visits:** Staff-recorded name, date, amount, and paid/unpaid status, with payment method recorded when paid. No account or automatic payment.
+- **Class and session schedule:** Group class, taekwondo, and coaching time, Manila-local display details, publication state, and change history. A group class can have a private staff-maintained attendance list. Coaching remains schedule-only, with no participant assignment, request, or booking records.
 - **Products and stock:** Approved catalog and prices, stock movements, and current quantity derived or reconciled from those movements.
 - **Counter sales:** Sale header, itemized lines with price snapshots, payment state, reversal metadata, and operator. Save a completed sale and its stock movements as one atomic operation.
 
@@ -168,7 +171,7 @@ The public site should feel like a welcoming community gym while retaining KMAX'
 ## 10. Technical, security, and quality direction
 
 - The previously requested frontend stack is Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui, and Lucide icons. No application work is part of this document revision.
-- **ASSUMPTION A11 — Infrastructure:** Database, authentication provider, and hosting platform have not been approved. Choose them during implementation planning based on KMAX's security and operating needs.
+- **DECISION — Infrastructure:** Use Supabase PostgreSQL for the cloud database and Supabase Auth for staff/admin authentication only. The application hosting provider, project environments, backup arrangements, and staff roles still require confirmation.
 - Require server-enforced staff authorization, secure sessions, recovery procedures, rate limiting, and protected secrets. Consider MFA for privileged staff during security design.
 - Store timestamps consistently and display business dates in Asia/Manila. Store PHP amounts with exact decimal or integer-centavo representation; never use floating-point arithmetic for financial totals.
 - Provide keyboard access, labeled forms, readable contrast, responsive layouts, and clear error/confirmation messages.
