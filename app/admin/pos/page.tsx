@@ -1,17 +1,26 @@
 "use client";
 
 import { Minus, Plus, Search, ShoppingBag, ShoppingCart, X } from "lucide-react";
+import Link from "next/link";
 import { useRef, useState } from "react";
-import { useAdminDemo } from "@/components/admin/demo-store";
+import { manilaToday, useAdminDemo } from "@/components/admin/demo-store";
 import styles from "@/components/admin/retail.module.css";
 
 function peso(centavos: number) {
   return `₱${Math.floor(centavos / 100).toLocaleString("en-PH")}.${String(centavos % 100).padStart(2, "0")}`;
 }
+function pesoTotal(centavos: bigint) {
+  return `₱${(centavos / BigInt(100)).toLocaleString("en-PH")}.${String(centavos % BigInt(100)).padStart(2, "0")}`;
+}
 
 export default function PosPage() {
-  const { products, mode, checkout } = useAdminDemo();
+  const { products, sales, mode, rootPath, checkout } = useAdminDemo();
   const isDemo = mode === "demo";
+  const today = manilaToday();
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" });
+  const todaySales = sales.filter((sale) => day.format(new Date(sale.createdAt)) === today);
+  const todayTotal = todaySales.reduce((sum, sale) => sum + BigInt(sale.totalCentavos), BigInt(0));
+  const totalStock = products.reduce((sum, product) => sum + BigInt(product.stock), BigInt(0));
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [message, setMessage] = useState("");
@@ -75,10 +84,16 @@ export default function PosPage() {
       </div>
       {isDemo && <div className={styles.demoInfo}>Demo only: prices and products are fictional. No payment is processed, and sales disappear when the demo is refreshed.</div>}
       {message && <div className={styles.notice} role="status">{message}<button type="button" aria-label="Dismiss message" onClick={() => setMessage("")}><X size={16} /></button></div>}
+      <div className={styles.summary} aria-label="Counter overview">
+        <div className={styles.summaryHero}><span>Counter sales today</span><strong>{pesoTotal(todayTotal)}</strong><small>{todaySales.length} {todaySales.length === 1 ? "transaction" : "transactions"} · POS only</small></div>
+        <div><span>Products</span><strong>{products.length}</strong><small>In the catalog</small></div>
+        <div><span>Items in stock</span><strong>{totalStock.toLocaleString("en-PH")}</strong><small>Units available</small></div>
+        <div><span>Out of stock</span><strong>{products.filter((product) => product.stock === 0).length}</strong><small>Products unavailable</small></div>
+      </div>
       <div className={styles.posLayout}>
         <section className={styles.panel} aria-labelledby="products-heading">
           <div className={styles.panelHeading}>
-            <div><h2 id="products-heading">Products</h2><p>{visibleProducts.length} {isDemo ? "sample " : ""}{visibleProducts.length === 1 ? "item" : "items"}</p></div>
+            <div><h2 id="products-heading">Counter sale</h2><p>Tap a product to add it to the order.</p></div>
             <label className={styles.search}><Search size={17} aria-hidden="true" /><span className={styles.srOnly}>Search products</span><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products" /></label>
           </div>
           <div className={styles.productGrid}>
@@ -90,16 +105,16 @@ export default function PosPage() {
                   <span className={styles.productIcon}><ShoppingBag size={20} aria-hidden="true" /></span>
                   <span className={styles.productName}>{product.name}</span>
                   <strong>{peso(product.priceCentavos)}</strong>
-                  <span className={styles.stockText}>{product.stock === 0 ? "Out of stock" : `${product.stock} in stock`}</span>
+                  <span className={`${styles.stockText} ${product.stock === 0 ? styles.stockEmpty : styles.stockCount}`}>{product.stock === 0 ? "Out of stock" : `${product.stock} in stock`}</span>
                 </button>
               );
             })}
           </div>
-          {visibleProducts.length === 0 && <p className={styles.empty}>No products match that search.</p>}
+          {visibleProducts.length === 0 && <p className={styles.empty}>{products.length === 0 ? <>No products yet. <Link className={styles.textButton} href={`${rootPath}/inventory`}>Add products in Inventory</Link>.</> : "No products match that search."}</p>}
         </section>
 
         <section className={`${styles.panel} ${styles.cartPanel}`} aria-labelledby="cart-heading">
-          <div className={styles.panelHeading}><div><h2 id="cart-heading">{isDemo ? "Sample sale" : "Current sale"}</h2><p>Review items before completing.</p></div><ShoppingCart size={20} aria-hidden="true" /></div>
+          <div className={styles.panelHeading}><div><h2 id="cart-heading">{isDemo ? "Sample order" : "Current order"}</h2><p>Review items before completing.</p></div><ShoppingCart size={20} aria-hidden="true" /></div>
           {lines.length ? (
             <ul className={styles.cartList}>
               {lines.map((line) => (

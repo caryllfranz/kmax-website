@@ -52,6 +52,29 @@
 .metrics small { margin-top: 7px; color: #526d85; font-size: .76rem; }
 .analyticsNote { margin: -5px 0 22px; color: #526d85; font-size: .78rem; line-height: 1.5; }
 .trendPanel { margin-bottom: 18px; }
+.memberChart { display: flex; height: 20px; overflow: hidden; border-radius: 5px; background: #eaf1f5; }
+.memberChart span { flex-basis: 0; min-width: 0; }
+.chartCurrent { background: #17825c; }
+.chartUpcoming { background: #d5931d; }
+.chartEnded { background: #bd4b45; }
+.chartLegend { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 16px 0 0; padding: 0; list-style: none; }
+.chartLegend li { display: flex; align-items: center; gap: 8px; color: #31556e; font-size: .9rem; }
+.chartLegend li span { width: 11px; height: 11px; border-radius: 3px; }
+.chartLegend strong { color: #102a43; font-variant-numeric: tabular-nums; }
+.chartEmpty { display: grid; gap: 6px; min-height: 105px; align-content: center; padding: 18px; border: 1px dashed #c2d6e3; border-radius: 8px; color: #31556e; font-size: .9rem; }
+.chartEmpty strong { color: #102a43; }
+.chartToggle { flex: none; min-height: 36px; padding: 7px 12px; border: 0; border-radius: 8px; background: #eaf6fd; color: #044a8c; font: 700 .8rem var(--font-body), sans-serif; cursor: pointer; }
+.chartToggle:hover { background: #d6ecfa; }
+.barChart { display: flex; gap: 12px; padding: 14px 0 4px; }
+.chartScale { display: flex; flex-direction: column; justify-content: space-between; height: 180px; padding-bottom: 2px; color: #526d85; font-size: .72rem; text-align: right; font-variant-numeric: tabular-nums; }
+.barPlot { display: flex; flex: 1; align-items: stretch; justify-content: space-around; gap: 8px; min-width: 0; }
+.barColumn { display: flex; flex: 1; flex-direction: column; align-items: center; gap: 9px; min-width: 0; color: #526d85; font-size: .75rem; font-variant-numeric: tabular-nums; }
+.barArea { display: flex; align-items: flex-end; justify-content: center; width: 100%; height: 180px; background: linear-gradient(to bottom, #e3eef7 1px, transparent 1px) 0 0 / 100% 50%, linear-gradient(to top, #e3eef7 1px, transparent 1px); }
+.chartBar { width: min(38px, 75%); min-height: 2px; border-radius: 5px 5px 0 0; background: #009fe8; }
+.chartTableScroll { overflow-x: auto; }
+.chartTable { width: 100%; border-collapse: collapse; text-align: left; font-size: .9rem; }
+.chartTable th, .chartTable td { padding: 12px; border-bottom: 1px solid #e3eef7; }
+.chartTable th { color: #526d85; font-size: .75rem; text-transform: uppercase; }
 .trendList { display: grid; gap: 16px; }
 .trendDetails { display: flex; align-items: baseline; gap: 12px; margin-bottom: 7px; font-size: .8rem; }
 .trendDetails strong { color: #102a43; font-variant-numeric: tabular-nums; }

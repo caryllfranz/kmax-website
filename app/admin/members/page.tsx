@@ -3,6 +3,7 @@
 import { CalendarDays, ChevronRight, Plus, Search, UserRound, X } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useAdminDemo, validMobile } from "@/components/admin/demo-store";
+import { membershipStatus, termFor, timeLeft } from "@/components/admin/members-term";
 import styles from "@/components/admin/members.module.css";
 
 function manilaToday() {
@@ -25,18 +26,25 @@ function normalizeMobile(value: string) {
 }
 
 function statusFor(startsOn: string, endsOn: string, today: string) {
-  if (startsOn > today) return { label: "Upcoming", style: styles.upcoming };
-  if (endsOn < today) return { label: "Ended", style: styles.ended };
-  return { label: "Current", style: styles.current };
+  const status = membershipStatus(startsOn, endsOn, today);
+  const categoryStyles = { current: styles.current, expiring: styles.expiring, expired: styles.ended, upcoming: styles.upcoming };
+  return { ...status, style: categoryStyles[status.category] };
+}
+
+function initials(name: string) {
+  return name.trim().split(/\s+/).slice(0, 2).map((part) => part.charAt(0).toLocaleUpperCase()).join("");
 }
 
 export default function MembersPage() {
   const { members, mode, addMember, renewMember, pendingOperations } = useAdminDemo();
   const isDemo = mode === "demo";
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "current" | "expiring" | "expired" | "upcoming">("all");
   const [showAdd, setShowAdd] = useState(false);
   const [addName, setAddName] = useState("");
   const [addMobile, setAddMobile] = useState("");
+  const [addPlan, setAddPlan] = useState("");
+  const [renewPlan, setRenewPlan] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addError, setAddError] = useState("");
   const [renewError, setRenewError] = useState("");
@@ -48,10 +56,19 @@ export default function MembersPage() {
   const renewLocked = saving || (renewRetry && pendingOperations.includes("renewal"));
   const today = manilaToday();
   const query = search.trim().toLocaleLowerCase();
-  const visibleMembers = members.filter((member) =>
-    member.name.toLocaleLowerCase().includes(query) || member.mobile.includes(query),
-  );
+  const counts = { all: members.length, current: 0, expiring: 0, expired: 0, upcoming: 0 };
+  for (const member of members) {
+    const term = termFor(member, today);
+    counts[statusFor(term.startsOn, term.endsOn, today).category]++;
+  }
+  const visibleMembers = members.filter((member) => {
+    const term = termFor(member, today);
+    const matchesFilter = filter === "all" || statusFor(term.startsOn, term.endsOn, today).category === filter;
+    return matchesFilter && (member.name.toLocaleLowerCase().includes(query) || member.mobile.includes(query));
+  });
   const selected = members.find((member) => member.id === selectedId);
+  const selectedTerm = selected ? termFor(selected, today) : null;
+  const selectedStatus = selectedTerm ? statusFor(selectedTerm.startsOn, selectedTerm.endsOn, today) : null;
   const nameToCheck = addName.trim().replace(/\s+/g, " ").toLocaleLowerCase();
   const mobileToCheck = normalizeMobile(addMobile);
   const possibleDuplicates = members.filter((member) =>
@@ -75,6 +92,7 @@ export default function MembersPage() {
       mobile,
       startsOn: String(data.get("startsOn") ?? ""),
       endsOn: String(data.get("endsOn") ?? ""),
+      planName: addPlan || null,
     });
     setSaving(false);
     if (!result.ok) {
@@ -85,6 +103,7 @@ export default function MembersPage() {
     form.reset();
     setAddName("");
     setAddMobile("");
+    setAddPlan("");
     setAddRetry(false);
     setAddError("");
     setShowAdd(false);
@@ -100,6 +119,7 @@ export default function MembersPage() {
     const result = await renewMember(selected.id, {
       startsOn: String(data.get("startsOn") ?? ""),
       endsOn: String(data.get("endsOn") ?? ""),
+      planName: renewPlan || null,
     });
     setSaving(false);
     if (!result.ok) {
@@ -108,6 +128,7 @@ export default function MembersPage() {
       return;
     }
     form.reset();
+    setRenewPlan("");
     setRenewRetry(false);
     setRenewError("");
     setNotice(isDemo ? `Demo membership renewed for ${selected.name}.` : `Membership term saved for ${selected.name}.`);
@@ -121,10 +142,6 @@ export default function MembersPage() {
           <h1>Members</h1>
           <p>Find members, check membership dates, and review renewals.</p>
         </div>
-        <button className={styles.primaryButton} type="button" aria-expanded={showAdd} aria-controls="add-demo-member" disabled={addLocked} onClick={() => { if (showAdd) { setAddName(""); setAddMobile(""); } setShowAdd(!showAdd); setAddError(""); }}>
-          {showAdd ? <X size={17} aria-hidden="true" /> : <Plus size={17} aria-hidden="true" />}
-          {showAdd ? "Close form" : "Add member"}
-        </button>
       </div>
 
       {notice && <div className={styles.notice} role="status">{notice}<button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}><X size={16} /></button></div>}
@@ -137,8 +154,9 @@ export default function MembersPage() {
           <form className={styles.addForm} onSubmit={handleAdd}>
             <label>Full name<input name="name" value={addName} onChange={(event) => setAddName(event.target.value)} readOnly={addLocked} type="text" autoComplete="off" maxLength={100} required placeholder={isDemo ? "Fictional name" : "Full name"} /></label>
             <label>Mobile number<input name="mobile" value={addMobile} onChange={(event) => setAddMobile(event.target.value)} readOnly={addLocked} type="tel" inputMode="tel" autoComplete="off" maxLength={32} required aria-describedby="mobile-hint" placeholder={isDemo ? "Fictional number" : "Mobile number"} /><small id="mobile-hint">7–15 digits; spaces and + ( ) . - are allowed.</small></label>
+            <label>Membership plan<select value={addPlan} onChange={(event) => setAddPlan(event.target.value)} disabled={addLocked}><option value="">Not specified</option><option value="Monthly">Monthly</option><option value="Quarterly">Quarterly</option></select></label>
             <label>Start date<input name="startsOn" readOnly={addLocked} type="date" required /></label>
-            <label>End date<input name="endsOn" readOnly={addLocked} type="date" required /></label>
+            <label>Expiry date<input name="endsOn" readOnly={addLocked} type="date" required /></label>
             {possibleDuplicates.length > 0 && <p role="status" style={{ gridColumn: "1 / -1" }}><strong>Possible existing member:</strong> {possibleDuplicates.slice(0, 3).map((member) => member.name).join(", ")}{possibleDuplicates.length > 3 ? ` and ${possibleDuplicates.length - 3} more` : ""}. Check the member list before adding; people may share a number or name.</p>}
             {addError && <p className={styles.error} role="alert">{addError}</p>}
             <div className={styles.formActions}><button className={styles.primaryButton} type="submit" disabled={saving}>{saving ? "Saving…" : isDemo ? "Add demo member" : "Add member"}</button></div>
@@ -150,26 +168,35 @@ export default function MembersPage() {
         <section className={styles.card} aria-labelledby="member-list-heading">
           <div className={styles.listHeader}>
             <div><h2 id="member-list-heading">Member list</h2><p>{visibleMembers.length} {visibleMembers.length === 1 ? "member" : "members"} shown</p></div>
-            <label className={styles.search}>
-              <Search size={17} aria-hidden="true" />
-              <span className={styles.srOnly}>Search by name or mobile number</span>
-              <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or mobile" />
-            </label>
+            <div className={styles.listActions}><label className={styles.search}>
+                <Search size={17} aria-hidden="true" />
+                <span className={styles.srOnly}>Search by name or mobile number</span>
+                <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or mobile" />
+              </label>
+              <button className={styles.primaryButton} type="button" aria-expanded={showAdd} aria-controls="add-demo-member" disabled={addLocked} onClick={() => { if (showAdd) { setAddName(""); setAddMobile(""); setAddPlan(""); } setShowAdd(!showAdd); setAddError(""); }}>
+                {showAdd ? <X size={17} aria-hidden="true" /> : <Plus size={17} aria-hidden="true" />}
+                {showAdd ? "Close form" : "Add member"}
+              </button></div>
+          </div>
+          <div className={styles.filters} aria-label="Filter memberships">
+            {([ ["all", "All"], ["current", "Current"], ["expiring", "Expiring"], ["expired", "Expired"], ["upcoming", "Upcoming"] ] as const).map(([value, label]) => <button key={value} type="button" className={filter === value ? styles.filterActive : styles.filter} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label} ({counts[value]})</button>)}
           </div>
           <p className={styles.tableHint}>Swipe to see all columns</p>
           <div className={styles.tableScroll}>
             <table className={styles.table}>
-              <thead><tr><th scope="col">Member</th><th scope="col">Mobile</th><th scope="col">Latest term dates</th><th scope="col">Latest term status</th><th scope="col"><span className={styles.srOnly}>Actions</span></th></tr></thead>
+              <thead><tr><th scope="col">Member</th><th scope="col">Plan</th><th scope="col">Expires</th><th scope="col">Time left</th><th scope="col">Status</th><th scope="col"><span className={styles.srOnly}>Actions</span></th></tr></thead>
               <tbody>
                 {visibleMembers.map((member) => {
-                  const status = statusFor(member.startsOn, member.endsOn, today);
+                  const term = termFor(member, today);
+                  const status = statusFor(term.startsOn, term.endsOn, today);
                   return (
                     <tr key={member.id} className={selectedId === member.id ? styles.selectedRow : ""}>
-                      <th scope="row"><span className={styles.memberName}><span className={styles.avatar} aria-hidden="true"><UserRound size={17} /></span>{member.name}</span></th>
-                      <td>{member.mobile}</td>
-                      <td><span className={styles.dateCell}><time dateTime={member.startsOn}>{displayDate(member.startsOn)}</time> – <time dateTime={member.endsOn}>{displayDate(member.endsOn)}</time></span></td>
-                      <td><span className={`${styles.status} ${status.style}`}>{status.label}</span></td>
-                      <td><button className={styles.detailsButton} type="button" aria-label={`View details for ${member.name}`} aria-pressed={selectedId === member.id} disabled={renewLocked} onClick={() => { setSelectedId(member.id); setRenewError(""); }}>Details <ChevronRight size={16} aria-hidden="true" /></button></td>
+                      <th scope="row"><span className={styles.memberName}><span className={styles.avatar} aria-hidden="true">{initials(member.name)}</span><span>{member.name}<small className={styles.memberMobile}>{member.mobile}</small></span></span></th>
+                      <td data-label="Plan">{term.planName || "Not specified"}</td>
+                      <td data-label="Expiry date"><time className={styles.dateCell} dateTime={term.endsOn}>{displayDate(term.endsOn)}</time></td>
+                      <td data-label="Time left">{timeLeft(term.endsOn, today)}</td>
+                      <td data-label="Term status"><span className={`${styles.status} ${status.style}`}>{status.label}</span></td>
+                      <td><button className={styles.detailsButton} type="button" aria-label={`View details and renewal for ${member.name}`} aria-pressed={selectedId === member.id} disabled={renewLocked} onClick={() => { setSelectedId(member.id); setRenewPlan(""); setRenewError(""); }}>Renew <ChevronRight size={16} aria-hidden="true" /></button></td>
                     </tr>
                   );
                 })}
@@ -177,29 +204,33 @@ export default function MembersPage() {
             </table>
           </div>
           {visibleMembers.length === 0 && <div className={styles.emptyList}>No matching members. Try another name or number.</div>}
-          <p className={styles.tableFooter}>Statuses compare the dates shown with today in Manila. Membership policies are still to be confirmed.</p>
+          <p className={styles.tableFooter}>Shows the earliest current expiry, otherwise the nearest upcoming or most recently expired term. Amber is a visual reminder for expiry within 7 days, not a gym policy. Dates use Philippine time.</p>
         </section>
 
         <aside className={`${styles.card} ${styles.detailCard}`} aria-label="Membership details">
-          {selected ? (
+          {selected && selectedTerm && selectedStatus ? (
             <>
               <div className={styles.detailTop}>
                 <div><span className={styles.eyebrow}>Membership details</span><h2>{selected.name}</h2><p>{selected.mobile}</p></div>
                 <button className={styles.iconButton} type="button" aria-label="Close member details" disabled={renewLocked} onClick={() => { setSelectedId(null); setRenewError(""); }}><X size={18} /></button>
               </div>
               <div className={styles.currentTerm}>
-                <span><CalendarDays size={16} aria-hidden="true" /> Latest recorded term</span>
-                <strong>{displayDate(selected.startsOn)} – {displayDate(selected.endsOn)}</strong>
+                <span><CalendarDays size={16} aria-hidden="true" /> {selectedStatus.category === "upcoming" ? "Next upcoming term" : selectedStatus.category === "expired" ? "Most recently expired term" : "Current term"}</span>
+                <strong>{displayDate(selectedTerm.startsOn)} – {displayDate(selectedTerm.endsOn)}</strong>
+                <span>{selectedTerm.planName || "Plan not specified"}</span>
+                <span className={`${styles.status} ${selectedStatus.style}`}>{selectedStatus.label}</span>
               </div>
+              {selectedTerm !== selected && <div className={styles.recordedTerm}><strong>Latest recorded term</strong><span>{selected.planName || "Plan not specified"} · {displayDate(selected.startsOn)} – {displayDate(selected.endsOn)}</span></div>}
               <div className={styles.history}>
                 <h3>Previous terms</h3>
-                {selected.history.length ? <ul>{selected.history.map((term, index) => <li key={`${term.startsOn}-${term.endsOn}-${index}`}><time dateTime={term.startsOn}>{displayDate(term.startsOn)}</time> – <time dateTime={term.endsOn}>{displayDate(term.endsOn)}</time></li>)}</ul> : <p>No previous terms recorded.</p>}
+                {selected.history.length ? <ul>{selected.history.map((term, index) => <li key={`${term.startsOn}-${term.endsOn}-${index}`}><span>{term.planName || "Plan not specified"}: </span><time dateTime={term.startsOn}>{displayDate(term.startsOn)}</time> – <time dateTime={term.endsOn}>{displayDate(term.endsOn)}</time></li>)}</ul> : <p>No previous terms recorded.</p>}
               </div>
               <form key={selected.id} className={styles.renewForm} onSubmit={handleRenew}>
                 <h3>Renew membership</h3>
                 <p>{isDemo ? "Enter fictional dates to try a renewal." : "Enter the approved dates for this renewal."} Previous terms remain in history.</p>
+                <label>Membership plan<select value={renewPlan} onChange={(event) => setRenewPlan(event.target.value)} disabled={renewLocked}><option value="">Not specified</option><option value="Monthly">Monthly</option><option value="Quarterly">Quarterly</option></select></label>
                 <label>New start date<input name="startsOn" readOnly={renewLocked} type="date" required /></label>
-                <label>New end date<input name="endsOn" readOnly={renewLocked} type="date" required /></label>
+                <label>New expiry date<input name="endsOn" readOnly={renewLocked} type="date" required /></label>
                 {renewError && <p className={styles.error} role="alert">{renewError}</p>}
                 <button className={styles.secondaryButton} type="submit" disabled={saving}>{saving ? "Saving…" : isDemo ? "Save demo renewal" : "Save renewal"}</button>
               </form>

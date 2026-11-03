@@ -79,7 +79,7 @@ export default function AdminShell({ children, basePath = "/admin", staffName }:
           <span className={styles.brandMark}>
             <Image src="/images/kmax-mark.svg" alt="" width={40} height={27} />
           </span>
-          <span className={styles.brandWords}><strong>KMAX</strong><small>STAFF WORKSPACE</small></span>
+          <span className={styles.brandWords}><strong>KMAX</strong><small>ADMIN</small></span>
         </Link>
 
         <div className={styles.navLabel}>Manage</div>
@@ -95,7 +95,6 @@ export default function AdminShell({ children, basePath = "/admin", staffName }:
             );
           })}
         </nav>
-        <div className={styles.sidebarFoot}>A simpler day at the KMAX desk.</div>
       </aside>
 
       <div className={styles.workspace}>

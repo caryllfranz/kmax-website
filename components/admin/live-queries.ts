@@ -58,7 +58,7 @@ export async function readData(client: SupabaseClient): Promise<DemoState> {
   // embedded-collection row cap while reading each parent and child together.
   const [termRows, productRows, lineRows, sessionRows, movementRows, walkInRows] = await Promise.all([
     keysetRows((after) => {
-      let query = client.from("membership_terms").select("id,member_id,starts_on,ends_on,created_at,members!inner(id,full_name,mobile,archived)").eq("members.archived", false).order("id").limit(pageSize);
+      let query = client.from("membership_terms").select("id,member_id,starts_on,ends_on,plan_name,created_at,members!inner(id,full_name,mobile,archived)").eq("members.archived", false).order("id").limit(pageSize);
       if (after) query = query.gt("id", after);
       return query;
     }),
@@ -73,7 +73,7 @@ export async function readData(client: SupabaseClient): Promise<DemoState> {
       return query;
     }),
     keysetRows((after) => {
-      let query = client.from("schedule_entries").select("id,title,category,coach_name,starts_at,status").neq("status", "cancelled").order("id").limit(pageSize);
+      let query = client.from("schedule_entries").select("id,title,category,coach_name,starts_at,ends_at,status").neq("status", "cancelled").order("id").limit(pageSize);
       if (after) query = query.gt("id", after);
       return query;
     }),
@@ -89,19 +89,20 @@ export async function readData(client: SupabaseClient): Promise<DemoState> {
     }),
   ]);
 
-  const terms = new Map<string, { member: Row; startsOn: string; endsOn: string; createdAt: string; id: string }[]>();
+  const terms = new Map<string, { member: Row; startsOn: string; endsOn: string; planName: string | null; createdAt: string; id: string }[]>();
   for (const row of termRows) {
     const memberId = text(row, "member_id");
     const member = joined(row, "members");
     if (text(member, "id") !== memberId) throw new Error("Invalid membership parent");
     const group = terms.get(memberId) ?? [];
-    group.push({ member, startsOn: text(row, "starts_on"), endsOn: text(row, "ends_on"), createdAt: text(row, "created_at"), id: text(row, "id") });
+    if (row.plan_name !== null && typeof row.plan_name !== "string") throw new Error("Invalid membership plan in staff data");
+    group.push({ member, startsOn: text(row, "starts_on"), endsOn: text(row, "ends_on"), planName: row.plan_name, createdAt: text(row, "created_at"), id: text(row, "id") });
     terms.set(memberId, group);
   }
   const members: Member[] = [...terms].map(([id, group]) => {
     const recorded = group.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
     const member = recorded[0].member;
-    return { id, name: text(member, "full_name"), mobile: text(member, "mobile"), startsOn: recorded[0].startsOn, endsOn: recorded[0].endsOn, history: recorded.slice(1).map(({ startsOn, endsOn }) => ({ startsOn, endsOn })) };
+    return { id, name: text(member, "full_name"), mobile: text(member, "mobile"), startsOn: recorded[0].startsOn, endsOn: recorded[0].endsOn, planName: recorded[0].planName, history: recorded.slice(1).map(({ startsOn, endsOn, planName }) => ({ startsOn, endsOn, planName })) };
   });
 
   const products = productRows.map((row) => ({ id: text(row, "id"), name: text(row, "name"), priceCentavos: integer(row, "price_centavos", true), stock: integer(row, "stock_on_hand", true) }));
@@ -127,7 +128,8 @@ export async function readData(client: SupabaseClient): Promise<DemoState> {
   const sessions: Session[] = sessionRows.map((row) => {
     const category = text(row, "category");
     const mapped: Session["category"] = category === "group_class" ? "Group class" : category === "taekwondo" ? "Taekwondo" : category === "coaching" ? "Coaching" : (() => { throw new Error("Invalid schedule category"); })();
-    return { id: text(row, "id"), title: text(row, "title"), category: mapped, ...manilaParts(text(row, "starts_at")), coach: typeof row.coach_name === "string" ? row.coach_name : "" };
+    const end = row.ends_at === null ? null : manilaParts(text(row, "ends_at"));
+    return { id: text(row, "id"), title: text(row, "title"), category: mapped, ...manilaParts(text(row, "starts_at")), endDate: end?.date ?? "", endTime: end?.time ?? "", coach: typeof row.coach_name === "string" ? row.coach_name : "" };
   }).sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
 
   const movements = movementRows.map((row) => ({ id: text(row, "id"), productName: text(joined(row, "products"), "name"), change: integer(row, "quantity_change"), reason: text(row, "reason"), createdAt: text(row, "created_at") })).sort((a, b) => b.createdAt.localeCompare(a.createdAt));

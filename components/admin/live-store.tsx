@@ -5,29 +5,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AdminContext, type AdminStore, type DemoState, type PendingOperation, type Result } from "@/components/admin/demo-store";
 import { readData } from "@/components/admin/live-queries";
+import { scheduleInstants } from "@/components/admin/schedule-time";
 
 const emptyData: DemoState = { members: [], products: [], sales: [], sessions: [], movements: [], walkIns: [] };
 const categories = { "Group class": "group_class", Taekwondo: "taekwondo", Coaching: "coaching" } as const;
 const operations: PendingOperation[] = ["member", "renewal", "product", "adjustment", "sale", "schedule", "walkin", "walkin_payment"];
-
-function manilaParts(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) throw new Error("Invalid schedule date");
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-  }).formatToParts(date);
-  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-  return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}` };
-}
-
-function manilaInstant(date: string, time: string): string | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
-  const value = new Date(`${date}T${time}:00+08:00`);
-  if (Number.isNaN(value.getTime())) return null;
-  const check = manilaParts(value.toISOString());
-  return check.date === date && check.time === time ? value.toISOString() : null;
-}
 
 function pendingKey(operation: PendingOperation): { key: string; existing: boolean } {
   const slot = `kmax:pending:${operation}`;
@@ -198,11 +180,11 @@ export function LiveAdminProvider({ staffId, children }: { staffId: string; chil
       }
     },
     async addMember(input) {
-      const payload = { p_full_name: input.name.trim(), p_mobile: input.mobile.trim(), p_starts_on: input.startsOn, p_ends_on: input.endsOn };
+      const payload = { p_full_name: input.name.trim(), p_mobile: input.mobile.trim(), p_starts_on: input.startsOn, p_ends_on: input.endsOn, p_plan_name: input.planName?.trim() || null };
       return runWrite((client, key) => client.rpc("create_member_with_term", { p_idempotency_key: key, ...payload }), "member", payload);
     },
     async renewMember(id, term) {
-      const payload = { p_member_id: id, p_starts_on: term.startsOn, p_ends_on: term.endsOn };
+      const payload = { p_member_id: id, p_starts_on: term.startsOn, p_ends_on: term.endsOn, p_plan_name: term.planName?.trim() || null };
       return runWrite((client, key) => client.rpc("append_membership_term", { p_idempotency_key: key, ...payload }), "renewal", payload);
     },
     async addProduct(input) {
@@ -237,15 +219,21 @@ export function LiveAdminProvider({ staffId, children }: { staffId: string; chil
       return result;
     },
     async addSession(input) {
-      const startsAt = manilaInstant(input.date, input.time);
-      if (!startsAt || !input.title.trim()) return { ok: false, error: "Enter a session name, date, and time." };
-      const payload = { p_title: input.title.trim(), p_category: categories[input.category], p_starts_at: startsAt, p_coach_name: input.coach.trim() || null };
+      const times = scheduleInstants(input.date, input.time, input.endDate, input.endTime, true);
+      if (!times || !input.title.trim()) return { ok: false, error: "Enter a session name and valid start and end dates and times." };
+      const payload = { p_title: input.title.trim(), p_category: categories[input.category], p_starts_at: times.startsAt, p_ends_at: times.endsAt, p_coach_name: input.coach.trim() || null };
       return runWrite((client, key) => client.rpc("create_schedule_entry", { p_idempotency_key: key, ...payload }), "schedule", payload);
     },
     async updateSession(id, input) {
-      const startsAt = manilaInstant(input.date, input.time);
-      if (!startsAt || !input.title.trim()) return { ok: false, error: "Enter a session name, date, and time." };
-      return runWrite((client) => client.from("schedule_entries").update({ title: input.title.trim(), category: categories[input.category], starts_at: startsAt, coach_name: input.coach.trim() || null }).eq("id", id).neq("status", "cancelled").select("id").maybeSingle());
+      const previous = dataRef.current.sessions.find((session) => session.id === id);
+      if (!previous) return { ok: false, error: "Session not found. Refresh the schedule and try again." };
+      const times = scheduleInstants(input.date, input.time, input.endDate, input.endTime, Boolean(previous.endTime));
+      if (!times || !input.title.trim()) return { ok: false, error: "Enter a session name and valid start and end dates and times." };
+      return runWrite((client) => {
+        let query = client.from("schedule_entries").update({ title: input.title.trim(), category: categories[input.category], starts_at: times.startsAt, ends_at: times.endsAt, coach_name: input.coach.trim() || null }).eq("id", id).neq("status", "cancelled");
+        if (!previous.endTime && !times.endsAt) query = query.is("ends_at", null);
+        return query.select("id").maybeSingle();
+      });
     },
     async removeSession(id) {
       return runWrite((client) => client.from("schedule_entries").update({ status: "cancelled" }).eq("id", id).select("id").maybeSingle());

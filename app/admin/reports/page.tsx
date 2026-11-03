@@ -30,6 +30,7 @@ export default function ReportsPage() {
   const { mode, members, sales, reload, loading } = useAdminDemo();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [salesTable, setSalesTable] = useState(false);
   const isDemo = mode === "demo";
   const validRange = !from || !to || from <= to;
   const filteredSales = validRange ? sales.filter((sale) => {
@@ -62,7 +63,8 @@ export default function ReportsPage() {
     items.set(line.productId, { ...current, units: current.units + line.quantity, total: current.total + BigInt(line.quantity) * BigInt(line.priceCentavos) });
   }
   const dailySales = [...days.entries()].sort(([a], [b]) => b.localeCompare(a));
-  const highestDay = dailySales.reduce((highest, [, day]) => day.total > highest ? day.total : highest, BigInt(0));
+  const graphSales = dailySales.slice(0, 7).reverse();
+  const highestDay = graphSales.reduce((highest, [, day]) => day.total > highest ? day.total : highest, BigInt(0));
   const average = filteredSales.length ? (total + BigInt(Math.floor(filteredSales.length / 2))) / BigInt(filteredSales.length) : BigInt(0);
 
   return <div className={styles.page}>
@@ -82,6 +84,21 @@ export default function ReportsPage() {
       </div>
       <p className={styles.analyticsNote}>Date-based counts include both start and end dates. Grace periods, pauses, and other membership rules are not included.</p>
     </section>
+    <section className={`${styles.panel} ${styles.trendPanel}`} aria-labelledby="member-chart-title">
+      <div className={styles.panelHeading}><div><h2 id="member-chart-title">Membership status</h2><p>Member records grouped by their saved term dates today.</p></div></div>
+      {members.length > 0 ? <>
+        <div className={styles.memberChart} role="img" aria-label={`${statuses.current} current, ${statuses.upcoming} upcoming, and ${statuses.ended} ended memberships`}>
+          <span className={styles.chartCurrent} style={{ flexGrow: statuses.current }} />
+          <span className={styles.chartUpcoming} style={{ flexGrow: statuses.upcoming }} />
+          <span className={styles.chartEnded} style={{ flexGrow: statuses.ended }} />
+        </div>
+        <ul className={styles.chartLegend}>
+          <li><span className={styles.chartCurrent} aria-hidden="true" />Current <strong>{statuses.current}</strong></li>
+          <li><span className={styles.chartUpcoming} aria-hidden="true" />Upcoming <strong>{statuses.upcoming}</strong></li>
+          <li><span className={styles.chartEnded} aria-hidden="true" />Ended <strong>{statuses.ended}</strong></li>
+        </ul>
+      </> : <div className={styles.chartEmpty}><strong>No members recorded yet</strong><span>The membership graph will appear after staff adds members.</span></div>}
+    </section>
     <section className={styles.panel} aria-labelledby="date-filter-title" style={{ marginBottom: 18 }}>
       <div className={styles.panelHeading}><div><h2 id="date-filter-title">Date range</h2><p>Optional filters use Philippine time. Leave both blank to show all loaded sales.</p></div></div>
       <div className={`${styles.form} ${styles.fields}`}>
@@ -97,11 +114,13 @@ export default function ReportsPage() {
       <div><span>Average sale</span><strong>{validRange ? pesos(average) : "—"}</strong><small>Rounded to the nearest centavo</small></div>
     </div>
     <section className={`${styles.panel} ${styles.trendPanel}`} aria-labelledby="daily-sales-title">
-      <div className={styles.panelHeading}><div><h2 id="daily-sales-title">Sales by day</h2><p>Counter totals by Philippine date for the selected range.</p></div></div>
-      {dailySales.length ? <div className={styles.trendList}>{dailySales.map(([day, summary]) => <div className={styles.trendRow} key={day}>
-        <div className={styles.trendDetails}><strong><time dateTime={day}>{day}</time></strong><span>{summary.count} {summary.count === 1 ? "sale" : "sales"}</span><b>{pesos(summary.total)}</b></div>
-        <div className={styles.trendTrack} aria-hidden="true"><div style={{ width: `${highestDay ? Number((summary.total * BigInt(100)) / highestDay) : 0}%` }} /></div>
-      </div>)}</div> : <p className={styles.empty}>{validRange ? "No sales match this date range." : "Choose a valid date range to view sales."}</p>}
+      <div className={styles.panelHeading}><div><h2 id="daily-sales-title">Product sales</h2><p>{salesTable ? "All recorded sales dates in the selected range." : "Latest seven recorded sales dates in the selected range."} Philippine time.</p></div>{dailySales.length > 0 && <button className={styles.chartToggle} type="button" onClick={() => setSalesTable(!salesTable)}>{salesTable ? "View chart" : "View table"}</button>}</div>
+      {dailySales.length ? salesTable ? <div className={styles.chartTableScroll}><table className={styles.chartTable}><thead><tr><th scope="col">Date</th><th scope="col">Transactions</th><th scope="col">Sales</th></tr></thead><tbody>{dailySales.map(([day, summary]) => <tr key={day}><td><time dateTime={day}>{day}</time></td><td>{summary.count}</td><td>{pesos(summary.total)}</td></tr>)}</tbody></table></div> : <div className={styles.barChart} aria-label="Product sales by day">
+        <div className={styles.chartScale} aria-hidden="true"><span>{pesos(highestDay)}</span><span>{pesos(highestDay / BigInt(2))}</span><span>₱0</span></div>
+        <div className={styles.barPlot}>{graphSales.map(([day, summary]) => <div className={styles.barColumn} role="img" key={day} aria-label={`${day}: ${pesos(summary.total)} across ${summary.count} sales`}>
+          <div className={styles.barArea}><div className={styles.chartBar} style={{ height: `${highestDay ? Number((summary.total * BigInt(10000)) / highestDay) / 100 : 0}%` }} title={`${pesos(summary.total)} · ${summary.count} ${summary.count === 1 ? "sale" : "sales"}`} /></div><time dateTime={day}>{day.slice(5)}</time>
+        </div>)}</div>
+      </div> : <div className={styles.chartEmpty}><strong>{validRange ? "No sales for this date range" : "Choose a valid date range"}</strong><span>{validRange ? "The sales graph will appear when counter sales are recorded in this range." : "The graph will show counter sales for your selected dates."}</span></div>}
     </section>
     <div className={styles.reportGrid}>
       <section className={styles.panel} aria-labelledby="sales-history"><div className={styles.panelHeading}><div><h2 id="sales-history">Sales</h2><p>Amounts use the price recorded at the time of the sale.</p></div></div>

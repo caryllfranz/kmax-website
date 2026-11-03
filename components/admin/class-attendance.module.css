@@ -10,7 +10,9 @@
 .form button, .retry { min-height: 42px; padding: 10px 13px; border: 0; border-radius: 8px; background: #07548d; color: white; font-weight: 700; cursor: pointer; }
 .form button:disabled, .list button:disabled, .retry:disabled { opacity: .55; cursor: not-allowed; }
 .list { list-style: none; margin: 10px 0; padding: 0; }
-.list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid #e9f0f5; font-size: .85rem; overflow-wrap: anywhere; }
+.list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-top: 1px solid #e9f0f5; font-size: .95rem; overflow-wrap: anywhere; }
+.person { display: flex; align-items: center; gap: 10px; min-width: 0; font-weight: 600; }
+.number { display: grid; width: 30px; height: 30px; flex: none; place-items: center; border-radius: 8px; background: #edf5fa; color: #07548d; font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .list button { flex: none; min-height: 36px; padding: 4px 7px; border: 0; background: transparent; color: #07548d; font-size: .8rem; cursor: pointer; }
 .list button:hover { text-decoration: underline; }
 .error, .notice { margin: 10px 0; font-size: .8rem; line-height: 1.5; }

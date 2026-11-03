@@ -19,7 +19,7 @@ function definiteFailure(error: unknown) {
   return /^[0-9A-Z]{5}$/.test(error.code);
 }
 
-export default function GroupClassAttendance({ sessionId, mode }: { sessionId: string; mode: "demo" | "live" }) {
+export default function GroupClassAttendance({ sessionId, sessionTitle, mode, onChanged, onDemoCount }: { sessionId: string; sessionTitle: string; mode: "demo" | "live"; onChanged: () => void | Promise<void>; onDemoCount: (sessionId: string, count: number) => void }) {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [name, setName] = useState("");
   const [lockedName, setLockedName] = useState<string | null>(null);
@@ -33,6 +33,15 @@ export default function GroupClassAttendance({ sessionId, mode }: { sessionId: s
   const [notice, setNotice] = useState("");
   const client = useRef<SupabaseClient | null>(null);
   const busy = useRef(false);
+
+  useEffect(() => {
+    if (mode === "demo") onDemoCount(sessionId, attendees.length);
+  }, [mode, sessionId, attendees.length, onDemoCount]);
+
+  useEffect(() => {
+    if (mode !== "demo") return;
+    return () => onDemoCount(sessionId, 0);
+  }, [mode, sessionId, onDemoCount]);
 
   const load = useCallback(async (activeClient: SupabaseClient) => {
     const rows = await keysetRows((after) => {
@@ -101,6 +110,7 @@ export default function GroupClassAttendance({ sessionId, mode }: { sessionId: s
         return;
       }
       sessionStorage.removeItem(pendingSlot); setPending(null); setLockedName(null);
+      void onChanged();
       if (kind === "add") setName("");
       setNotice(kind === "add" ? "Attendee added." : "Attendee removed from the list.");
       try { setAttendees(await load(client.current)); }
@@ -109,6 +119,38 @@ export default function GroupClassAttendance({ sessionId, mode }: { sessionId: s
       setError("The request could not be confirmed. Check your connection and retry the same details.");
       try { setPending(readPending()); } catch { client.current = null; setReady(false); }
     } finally { busy.current = false; setSaving(false); }
+  }
+
+  async function clearReviewedRequest() {
+    if (!reviewed || !pending || busy.current) return;
+    busy.current = true;
+    setSaving(true);
+    try {
+      const stored = readPending();
+      if (!stored || stored.key !== pending.key || stored.kind !== "add") throw new Error("Pending request changed");
+      sessionStorage.removeItem(pendingSlot);
+    } catch {
+      setError("Could not clear the pending request. Refresh and ask an administrator for help.");
+      busy.current = false;
+      setSaving(false);
+      return;
+    }
+
+    setPending(null); setLostPayload(false); setReviewed(false); setLockedName(null); setError("");
+    void onChanged();
+    try {
+      if (!client.current) throw new Error("Attendance connection unavailable");
+      setAttendees(await load(client.current));
+      setNotice("Attendance request review cleared and list refreshed.");
+    } catch {
+      setNotice("");
+      setError("The review was cleared, but the list could not refresh. Reload the page before making another change.");
+      client.current = null;
+      setReady(false);
+    } finally {
+      busy.current = false;
+      setSaving(false);
+    }
   }
 
   function addDemo(event: FormEvent<HTMLFormElement>) {
@@ -122,7 +164,7 @@ export default function GroupClassAttendance({ sessionId, mode }: { sessionId: s
   const pendingOtherSession = pending !== null && pending.sessionId !== sessionId;
   const pendingRemoval = pending?.kind === "remove" && !pendingOtherSession;
   return <section className={styles.panel} aria-label="Group class attendance">
-    <div className={styles.heading}><div><h3>Attendance list</h3><p>Staff record names for this class. Members and walk-ins are welcome.</p></div><strong>{attendees.length} {attendees.length === 1 ? "person" : "people"}</strong></div>
+    <div className={styles.heading}><div><h3>{sessionTitle} attendance</h3><p>Staff can list members and walk-ins for this class.</p></div><strong>{loading ? "Loading…" : ready ? `${attendees.length} ${attendees.length === 1 ? "person" : "people"}` : "Unavailable"}</strong></div>
     {mode === "demo" && <p className={styles.note}>Demo only: use fictional names. This list resets when closed.</p>}
     {pendingOtherSession && <p className={styles.error} role="alert">An attendance request for another class is unconfirmed. Return to that class and retry it first.</p>}
     {pending?.kind === "add" && !pendingOtherSession && !lostPayload && <p className={styles.note}>An earlier add is unconfirmed. Retry the same name; the saved request key prevents duplicates.</p>}
@@ -130,15 +172,7 @@ export default function GroupClassAttendance({ sessionId, mode }: { sessionId: s
       <p>The original name is no longer available after closing or refreshing this view. Do not add it again until an administrator has verified the request outcome. A missing record alone may mean it is still processing.</p>
       <p>Request reference: <code>{pending.key}</code></p>
       <label><input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} /> An administrator verified this request and confirmed it is safe to clear.</label>
-      <button type="button" disabled={!reviewed || saving} onClick={() => {
-        try {
-          const stored = readPending();
-          if (!stored || stored.key !== pending.key || stored.kind !== "add") throw new Error("Pending request changed");
-          sessionStorage.removeItem(pendingSlot);
-          setPending(null); setLostPayload(false); setReviewed(false); setLockedName(null); setError("");
-          setNotice("Attendance request review cleared.");
-        } catch { setError("Could not clear the pending request. Refresh and ask an administrator for help."); }
-      }}>Clear reviewed request</button>
+      <button type="button" disabled={!reviewed || saving} onClick={() => void clearReviewedRequest()}>Clear reviewed request</button>
     </div>}
     {pendingRemoval && <p className={styles.note}>An earlier removal is unconfirmed. Retry the same removal.</p>}
     {loading ? <p role="status">Loading attendance…</p> : <>
@@ -148,10 +182,10 @@ export default function GroupClassAttendance({ sessionId, mode }: { sessionId: s
       </form>
       {error && <p className={styles.error} role="alert">{error}</p>}
       {notice && <p className={styles.notice} role="status">{notice}</p>}
-      {attendees.length ? <ul className={styles.list}>{attendees.map((attendee) => <li key={attendee.id}><span>{attendee.full_name}</span><button type="button" disabled={saving || pendingOtherSession || (pending !== null && !(pending.kind === "remove" && pending.attendanceId === attendee.id)) || !ready} onClick={() => {
+      {attendees.length ? <ol className={styles.list}>{attendees.map((attendee, index) => <li key={attendee.id}><span className={styles.person}><span className={styles.number} aria-hidden="true">{index + 1}</span><span>{attendee.full_name}</span></span><button type="button" disabled={saving || pendingOtherSession || (pending !== null && !(pending.kind === "remove" && pending.attendanceId === attendee.id)) || !ready} onClick={() => {
         if (mode === "demo") setAttendees((current) => current.filter((item) => item.id !== attendee.id));
         else void write("remove", attendee.id);
-      }} aria-label={`Remove ${attendee.full_name}`}>{pendingRemoval && pending?.attendanceId === attendee.id ? "Retry removal" : "Remove"}</button></li>)}</ul> : <p className={styles.empty}>No names recorded for this class yet.</p>}
+      }} aria-label={`Remove ${attendee.full_name}`}>{pendingRemoval && pending?.attendanceId === attendee.id ? "Retry removal" : "Remove"}</button></li>)}</ol> : <p className={styles.empty}>No names recorded for this class yet.</p>}
       {pendingRemoval && !attendees.some((item) => item.id === pending?.attendanceId) && <button className={styles.retry} type="button" disabled={saving || !ready} onClick={() => void write("remove", pending?.attendanceId)}>Retry unconfirmed removal</button>}
     </>}
     <p className={styles.note}>To correct a name, remove it and add the corrected name. No online reservation is created.</p>

@@ -52,7 +52,7 @@ The public website must work on phones and desktops, be accessible, and use repl
 | Staff access | Secure staff/admin authentication; protected pages and operations; permissions matched to assigned responsibilities. |
 | Member registry | Authorized staff register, find, and update members. Full name and mobile number are the previously chosen basic registration fields. Flag possible duplicates. |
 | Walk-ins | Staff record a non-member visit with name, visit date, amount, paid/unpaid status and payment method when paid. No fee is assumed and no payment is processed. |
-| Memberships | Record initial terms, track expiry, renew memberships, and retain prior terms and payment history. Show active, expiring, and expired views using KMAX-approved rules. |
+| Memberships | Record initial terms, track expiry, renew memberships, and retain prior terms and payment history. Staff can label terms Monthly or Quarterly and enter the actual start and expiry dates. Show expiry and an informational seven-day reminder; KMAX's official expiry rules still need confirmation. |
 | Counter POS | Staff-operated checkout for drinks and merchandise, with itemized totals and durable transaction records. |
 | Inventory | Product catalog, stock on hand, receiving, sale deductions, authorized corrections, and stock history. |
 | Sales reports | Date-filtered sales totals, item sales, and operational summaries derived from saved transactions. |

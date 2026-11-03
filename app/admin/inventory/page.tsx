@@ -31,6 +31,7 @@ export default function InventoryPage() {
   const selectRef = useRef<HTMLSelectElement>(null);
   const visibleProducts = products.filter((product) => product.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const selected = products.find((product) => product.id === selectedId);
+  const totalStock = products.reduce((sum, product) => sum + BigInt(product.stock), BigInt(0));
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -97,6 +98,11 @@ export default function InventoryPage() {
       </div>
       <div className={styles.demoInfo}>{isDemo ? "Demo only: products, prices, and stock are fictional and reset when the page is refreshed." : "Stock changes and their reasons are recorded in stock history. If a request cannot be confirmed, check the history and retry with the same details."}</div>
       {notice && <div className={styles.notice} role="status">{notice}<button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}><X size={16} /></button></div>}
+      <div className={`${styles.summary} ${styles.summaryThree}`} aria-label="Inventory overview">
+        <div className={styles.summaryHero}><span>Products</span><strong>{products.length}</strong><small>In the catalog</small></div>
+        <div><span>Items in stock</span><strong>{totalStock.toLocaleString("en-PH")}</strong><small>Units available</small></div>
+        <div><span>Out of stock</span><strong>{products.filter((product) => product.stock === 0).length}</strong><small>Products unavailable</small></div>
+      </div>
       <section className={`${styles.panel} ${styles.formPanel}`} id="add-product" aria-labelledby="add-product-heading" hidden={!showAdd}>
           <div className={styles.panelHeading}><div><h2 id="add-product-heading">{isDemo ? "Add a sample product" : "Add a product"}</h2><p>{isDemo ? "Use fictional items and prices only." : "Enter the product, selling price, and starting stock."}</p></div></div>
           <form className={styles.addProductForm} onSubmit={handleAdd} aria-busy={saving === "product"}>
@@ -118,12 +124,13 @@ export default function InventoryPage() {
           <p className={styles.tableHint}>Swipe to see all columns</p>
           <div className={styles.tableScroll}>
             <table className={styles.table}>
-              <thead><tr><th scope="col">Product</th><th scope="col">{isDemo ? "Sample price" : "Price"}</th><th scope="col">In stock</th><th scope="col"><span className={styles.srOnly}>Action</span></th></tr></thead>
+              <thead><tr><th scope="col">Product</th><th scope="col">{isDemo ? "Sample price" : "Price"}</th><th scope="col">Stock</th><th scope="col">Status</th><th scope="col"><span className={styles.srOnly}>Action</span></th></tr></thead>
               <tbody>{visibleProducts.map((product) => (
                 <tr key={product.id}>
                   <th scope="row">{product.name}</th>
                   <td>{peso(product.priceCentavos)}</td>
-                  <td><span className={product.stock === 0 ? styles.stockEmpty : styles.stockCount}>{product.stock === 0 ? "Out of stock" : product.stock}</span></td>
+                  <td>{product.stock}</td>
+                  <td><span className={product.stock === 0 ? styles.stockEmpty : styles.stockCount}>{product.stock === 0 ? "Out of stock" : "In stock"}</span></td>
                   <td><button type="button" className={styles.textButton} aria-label={`Adjust stock for ${product.name}`} disabled={saving !== null || adjustRetryLocked} onClick={() => { setSelectedId(product.id); selectRef.current?.focus(); }}>Adjust</button></td>
                 </tr>
               ))}</tbody>

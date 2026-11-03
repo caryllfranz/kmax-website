@@ -1,13 +1,14 @@
 "use client";
 
 import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import { scheduleInstants } from "./schedule-time";
 
-export type MembershipTerm = { startsOn: string; endsOn: string };
+export type MembershipTerm = { startsOn: string; endsOn: string; planName?: string | null };
 export type Member = MembershipTerm & { id: string; name: string; mobile: string; history: MembershipTerm[] };
 export type Product = { id: string; name: string; priceCentavos: number; stock: number };
 export type SaleLine = { productId: string; name: string; quantity: number; priceCentavos: number };
 export type Sale = { id: string; createdAt: string; totalCentavos: number; lines: SaleLine[] };
-export type Session = { id: string; title: string; category: "Group class" | "Taekwondo" | "Coaching"; date: string; time: string; coach: string };
+export type Session = { id: string; title: string; category: "Group class" | "Taekwondo" | "Coaching"; date: string; time: string; endDate: string; endTime: string; coach: string };
 export type StockMovement = { id: string; productName: string; change: number; reason: string; createdAt: string };
 export type WalkIn = { id: string; name: string; visitDate: string; amountCentavos: number; paidAt: string | null; paymentMethod: string | null };
 export type NewWalkIn = { name: string; visitDate: string; amountCentavos: number; paid: boolean; paymentMethod: string | null };
@@ -37,9 +38,9 @@ function dayOffset(days: number) {
 function initialData(): DemoState {
   return {
     members: [
-      { id: "member-1", name: "Mika Santos (sample)", mobile: "09XX XXX 0001", startsOn: dayOffset(-20), endsOn: dayOffset(10), history: [] },
-      { id: "member-2", name: "Andi Cruz (sample)", mobile: "09XX XXX 0002", startsOn: dayOffset(-50), endsOn: dayOffset(-5), history: [] },
-      { id: "member-3", name: "Sam Reyes (sample)", mobile: "09XX XXX 0003", startsOn: dayOffset(-8), endsOn: dayOffset(22), history: [] },
+      { id: "member-1", name: "Mika Santos (sample)", mobile: "09XX XXX 0001", startsOn: dayOffset(-20), endsOn: dayOffset(10), planName: "Monthly", history: [] },
+      { id: "member-2", name: "Andi Cruz (sample)", mobile: "09XX XXX 0002", startsOn: dayOffset(-50), endsOn: dayOffset(-5), planName: null, history: [] },
+      { id: "member-3", name: "Sam Reyes (sample)", mobile: "09XX XXX 0003", startsOn: dayOffset(-8), endsOn: dayOffset(22), planName: "Quarterly", history: [] },
     ],
     products: [
       { id: "product-1", name: "Water (sample)", priceCentavos: 3500, stock: 18 },
@@ -48,9 +49,9 @@ function initialData(): DemoState {
     ],
     sales: [],
     sessions: [
-      { id: "session-1", title: "Group class (sample)", category: "Group class", date: dayOffset(1), time: "18:00", coach: "To be confirmed" },
-      { id: "session-2", title: "Taekwondo (sample)", category: "Taekwondo", date: dayOffset(2), time: "17:00", coach: "To be confirmed" },
-      { id: "session-3", title: "Coaching time (sample)", category: "Coaching", date: dayOffset(3), time: "10:00", coach: "To be confirmed" },
+      { id: "session-1", title: "Group class (sample)", category: "Group class", date: dayOffset(1), time: "18:00", endDate: dayOffset(1), endTime: "19:00", coach: "To be confirmed" },
+      { id: "session-2", title: "Taekwondo (sample)", category: "Taekwondo", date: dayOffset(2), time: "17:00", endDate: dayOffset(2), endTime: "18:00", coach: "To be confirmed" },
+      { id: "session-3", title: "Coaching time (sample)", category: "Coaching", date: dayOffset(3), time: "10:00", endDate: dayOffset(3), endTime: "11:00", coach: "To be confirmed" },
     ],
     movements: [],
     walkIns: [],
@@ -83,7 +84,7 @@ const validDate = (value: string) => {
   const date = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 };
-const validTerm = (term: MembershipTerm) => validDate(term.startsOn) && validDate(term.endsOn) && term.endsOn >= term.startsOn;
+const validTerm = (term: MembershipTerm) => validDate(term.startsOn) && validDate(term.endsOn) && term.endsOn >= term.startsOn && (!term.planName || term.planName.trim().length <= 120);
 
 export function AdminDemoProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<DemoState>(initialData);
@@ -94,15 +95,14 @@ export function AdminDemoProvider({ children }: { children: ReactNode }) {
     const name = input.name.trim();
     const mobile = input.mobile.trim();
     if (!name || !validMobile(mobile) || !validTerm(input)) return { ok: false, error: "Enter a name, a mobile number with 7–15 digits, and valid membership dates." };
-    if (current.current.members.some((member) => member.mobile.replace(/\D/g, "") === mobile.replace(/\D/g, ""))) return { ok: false, error: "A sample member with this mobile number already exists." };
-    update({ ...current.current, members: [...current.current.members, { ...input, id: id(), name, mobile, history: [] }] });
+    update({ ...current.current, members: [...current.current.members, { ...input, id: id(), name, mobile, planName: input.planName?.trim() || null, history: [] }] });
     return { ok: true };
   }
 
   async function renewMember(memberId: string, term: MembershipTerm): Promise<Result> {
     const member = current.current.members.find((item) => item.id === memberId);
     if (!member || !validTerm(term)) return { ok: false, error: "Enter valid start and expiry dates." };
-    update({ ...current.current, members: current.current.members.map((item) => item.id === memberId ? { ...item, ...term, history: [...item.history, { startsOn: item.startsOn, endsOn: item.endsOn }] } : item) });
+    update({ ...current.current, members: current.current.members.map((item) => item.id === memberId ? { ...item, ...term, planName: term.planName?.trim() || null, history: [...item.history, { startsOn: item.startsOn, endsOn: item.endsOn, planName: item.planName ?? null }] } : item) });
     return { ok: true };
   }
 
@@ -137,14 +137,15 @@ export function AdminDemoProvider({ children }: { children: ReactNode }) {
   }
 
   async function addSession(input: NewSession): Promise<Result> {
-    if (!input.title.trim() || !validDate(input.date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.time)) return { ok: false, error: "Enter a session name, date, and time." };
-    update({ ...current.current, sessions: [...current.current.sessions, { ...input, id: id(), title: input.title.trim(), coach: input.coach.trim() || "To be confirmed" }] });
+    if (!input.title.trim() || !scheduleInstants(input.date, input.time, input.endDate, input.endTime, true)) return { ok: false, error: "Enter a session name and valid start and end dates and times." };
+    update({ ...current.current, sessions: [...current.current.sessions, { ...input, endDate: input.endTime ? input.endDate || input.date : "", id: id(), title: input.title.trim(), coach: input.coach.trim() || "To be confirmed" }] });
     return { ok: true };
   }
 
   async function updateSession(sessionId: string, input: NewSession): Promise<Result> {
-    if (!current.current.sessions.some((session) => session.id === sessionId) || !input.title.trim() || !validDate(input.date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.time)) return { ok: false, error: "Enter a session name, date, and time." };
-    update({ ...current.current, sessions: current.current.sessions.map((session) => session.id === sessionId ? { ...input, id: sessionId, title: input.title.trim(), coach: input.coach.trim() || "To be confirmed" } : session) });
+    const previous = current.current.sessions.find((session) => session.id === sessionId);
+    if (!previous || !input.title.trim() || !scheduleInstants(input.date, input.time, input.endDate, input.endTime, Boolean(previous.endTime))) return { ok: false, error: "Enter a session name and valid start and end dates and times." };
+    update({ ...current.current, sessions: current.current.sessions.map((session) => session.id === sessionId ? { ...input, endDate: input.endTime ? input.endDate || input.date : "", id: sessionId, title: input.title.trim(), coach: input.coach.trim() || "To be confirmed" } : session) });
     return { ok: true };
   }
 

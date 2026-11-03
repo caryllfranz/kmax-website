@@ -1,6 +1,6 @@
 # KMAX Supabase foundation
 
-The owner confirmed that Supabase project `hysyosgartvkrfeayyri` is for testing. The confirmed `<admin-email>` Auth user has an active admin profile there. Use fictional data only. The public `/admin` dashboard remains an in-memory demo; `/staff` is the authenticated test workspace. A separate production Supabase project and its own staff accounts, credentials, backups, and environment variables are still needed before launch.
+The owner selected Supabase project `wnxkvvnijshqznzjsfhs` (`kmax-dev`) for development and testing. A confirmed staff Auth user has an active admin profile in that project. Use fictional data only. The public `/admin` dashboard remains an in-memory demo; `/staff` is the authenticated test workspace. The earlier `hysyosgartvkrfeayyri` project retains its own data and accounts; no data was copied. A separate production Supabase project and its own staff accounts, credentials, backups, and environment variables are still needed before launch.
 
 ## Before connecting real data
 
@@ -23,7 +23,7 @@ supabase db push --dry-run
 supabase db push
 ```
 
-The core, mobile-format, group-class attendance, and walk-in migrations were applied to the linked test project on November 3, 2026. The mobile-format constraint preserves existing rows but requires invalid legacy numbers to be corrected on update. Do not point development or preview branches at production data; set up a separate production project before launch.
+The core, mobile-format, group-class attendance, walk-in, and attendance-count migrations were applied to `kmax-dev` on November 3, 2026. The mobile-format constraint preserves existing rows but requires invalid legacy numbers to be corrected on update. Do not point development or preview branches at production data; set up a separate production project before launch.
 
 ## Provision the first administrator
 
@@ -59,4 +59,4 @@ If a product price changed after the cart was displayed, checkout fails and the 
 
 ## Verification performed
 
-The migration was tested in an isolated local PostgreSQL 18 database with simulated Supabase roles and `auth.uid()`. Checks covered anonymous and inactive-staff denial, published schedule visibility, atomic member/term creation, retries and cross-actor key reuse, immutable terms, direct stock-write denial, stale prices, money bounds and failed-sale rollback. Two simultaneous sales for one remaining unit resulted in one committed sale and one insufficient-stock error. Cloud SQL checks using a simulated admin identity verified member and renewal creation, product stock, checkout and retries, stale-price rejection, group-class attendance, walk-in payment, and schedule creation inside transactions that were rolled back. The owner confirmed signing in, but browser interactions, PostgREST writes, deployment, backups, and network-retry recovery still require integration testing. Sales reports do not yet reliably identify an unconfirmed request after a refresh; have an administrator verify it before clearing the review or retrying the sale.
+The migrations were tested in an isolated local PostgreSQL 18 database with simulated Supabase roles and `auth.uid()`. Checks covered anonymous and inactive-staff denial, published schedule visibility, atomic member/term creation, retries and cross-actor key reuse, immutable terms, direct stock-write denial, stale prices, money bounds and failed-sale rollback. Two simultaneous sales for one remaining unit resulted in one committed sale and one insufficient-stock error. Cloud SQL checks in `kmax-dev` using a simulated admin identity verified plan history, overnight class times, group-class attendance and counts inside a transaction that was rolled back. The owner confirmed signing in to the new project; browser write workflows, deployment, backups, and network-retry recovery still require integration testing. Sales reports do not yet reliably identify an unconfirmed request after a refresh; have an administrator verify it before clearing the review or retrying the sale.
